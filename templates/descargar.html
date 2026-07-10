@@ -2,17 +2,20 @@
 {% block body %}
 <div class="auth-page">
   <div class="auth-card">
+    <div style="width:44px; height:44px; border-radius:12px; background:rgba(255,46,99,0.1); border:1px solid rgba(255,46,99,0.25); display:flex; align-items:center; justify-content:center; margin-bottom:16px;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="var(--rosa)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+    </div>
     <h1>Descargar {{ game_name or "Quid Game TikTok" }}</h1>
-    <p class="sub">Ingresa tu clave de licencia para bajar la última versión.</p>
+    <p class="sub">Ingresa tu clave de licencia para bajar la última versión del instalador.</p>
 
     {% if error %}<div class="error-msg">{{ error }}</div>{% endif %}
 
     <form method="POST">
       <div class="field">
         <label>Clave de licencia</label>
-        <input type="text" name="license_key" placeholder="QGT-MEN-XXXXX-XXXXX-XXXXX" required>
+        <input type="text" name="license_key" placeholder="QGT-MEN-XXXXX-XXXXX-XXXXX" required autofocus>
       </div>
-      <button class="btn-block" type="submit">Descargar</button>
+      <button class="btn-block" type="submit">Descargar instalador</button>
     </form>
 
     <p class="sub" style="margin-top:20px; margin-bottom:0;">

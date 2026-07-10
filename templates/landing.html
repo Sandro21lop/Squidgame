@@ -4,10 +4,14 @@
 <nav class="nav">
   <div class="wrap">
     <a href="/" class="logo">QUID<span>GAME</span></a>
-    <a href="#precios" class="nav-link" style="margin-right:18px; font-size:14px; color:var(--text-dim); text-decoration:none;">Planes</a>
-    <a href="#resultados" class="nav-link" style="margin-right:18px; font-size:14px; color:var(--text-dim); text-decoration:none;">Resultados</a>
-    <a href="{{ url_for('public.mi_cuenta') }}" class="nav-link" style="margin-right:18px; font-size:14px; color:var(--text-dim); text-decoration:none;">Mi cuenta</a>
-    <a href="#precios" class="nav-cta">Ver planes</a>
+    <a href="#precios" class="nav-link" style="margin-right:8px; font-size:14px; color:var(--text-dim); text-decoration:none;">Precio</a>
+    <a href="#resultados" class="nav-link" style="margin-right:8px; font-size:14px; color:var(--text-dim); text-decoration:none;">Resultados</a>
+    <a href="{{ url_for('public.mi_cuenta') }}" class="nav-link" style="margin-right:8px; font-size:14px; color:var(--text-dim); text-decoration:none;">Mi cuenta</a>
+    <a href="{{ url_for('public.descargar') }}" class="nav-download">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+      Descargar
+    </a>
+    <a href="#precios" class="nav-cta">Empezar por $5</a>
   </div>
 </nav>
 
@@ -22,36 +26,20 @@
         y tú dejas de solo transmitir y empiezas a facturar.
       </p>
       <div class="cta-row">
-        <a href="#precios" class="btn-primary">Elegir mi plan</a>
-        <span class="precio-inline">Desde <b>$5</b> / mes · cancelas cuando quieras · incluye actualizaciones</span>
+        <a href="#precios" class="btn-primary">Empezar por $5/mes</a>
+        <a href="{{ url_for('public.descargar') }}" class="btn-outline">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+          Ya tengo licencia
+        </a>
+        <span class="precio-inline cta-row-full">Desde <b>$5</b> / mes · cancelas cuando quieras · incluye actualizaciones</span>
       </div>
     </div>
 
     <div class="feed-frame">
-      <div class="feed-top">
+      <video class="hero-video" src="{{ url_for('static', filename='hero/quidgame-demo.mp4') }}" autoplay muted loop playsinline></video>
+      <div class="hero-video-badge">
         <span class="live-badge">EN VIVO</span>
         <span>1,204 espectadores</span>
-      </div>
-      <div class="feed-viewport">
-        <div class="feed-scroll">
-          <div class="feed-item gift"><span class="who">@karla.ec</span> <span class="what">envió Capibara → +50 monedas</span></div>
-          <div class="feed-item"><span class="who">Jugador_08</span> <span class="what">avanzó a la ronda 2</span></div>
-          <div class="feed-item kill"><span class="who">Jugador_14</span> <span class="what">fue eliminado</span></div>
-          <div class="feed-item gift"><span class="who">@luis.tk</span> <span class="what">envió Corazón Coreano → +120 monedas</span></div>
-          <div class="feed-item"><span class="who">Jugador_02</span> <span class="what">esquivó por poco</span></div>
-          <div class="feed-item gift"><span class="who">@vale_23</span> <span class="what">envió Sombrero → +30 monedas</span></div>
-          <div class="feed-item kill"><span class="who">Jugador_05</span> <span class="what">fue eliminado</span></div>
-          <div class="feed-item"><span class="who">Jugador_11</span> <span class="what">llegó a la final</span></div>
-          <!-- duplicado para el loop del scroll -->
-          <div class="feed-item gift"><span class="who">@karla.ec</span> <span class="what">envió Capibara → +50 monedas</span></div>
-          <div class="feed-item"><span class="who">Jugador_08</span> <span class="what">avanzó a la ronda 2</span></div>
-          <div class="feed-item kill"><span class="who">Jugador_14</span> <span class="what">fue eliminado</span></div>
-          <div class="feed-item gift"><span class="who">@luis.tk</span> <span class="what">envió Corazón Coreano → +120 monedas</span></div>
-          <div class="feed-item"><span class="who">Jugador_02</span> <span class="what">esquivó por poco</span></div>
-          <div class="feed-item gift"><span class="who">@vale_23</span> <span class="what">envió Sombrero → +30 monedas</span></div>
-          <div class="feed-item kill"><span class="who">Jugador_05</span> <span class="what">fue eliminado</span></div>
-          <div class="feed-item"><span class="who">Jugador_11</span> <span class="what">llegó a la final</span></div>
-        </div>
       </div>
     </div>
   </div>
@@ -132,25 +120,31 @@
     </div>
 
     {% if pruebas %}
-    <div class="pruebas-grid">
-      {% for p in pruebas %}
-        <div class="prueba-card"
-             data-tipo="{{ p.tipo }}"
-             data-src="{{ url_for('static', filename='pruebas/' + p.archivo) }}"
-             onclick="abrirLightbox(this)">
-          {% if p.tipo == 'video' %}
-            <video src="{{ url_for('static', filename='pruebas/' + p.archivo) }}" muted loop playsinline preload="metadata"></video>
-            <span class="play-badge">▶</span>
-          {% else %}
-            <img src="{{ url_for('static', filename='pruebas/' + p.archivo) }}" alt="{{ p.titulo }}" loading="lazy">
-          {% endif %}
-          <span class="prueba-stat">{{ p.resultado }}</span>
-          <div class="prueba-caption">
-            <div class="titulo">{{ p.titulo }}</div>
-            {% if p.descripcion %}<div class="desc">{{ p.descripcion }}</div>{% endif %}
+    <div class="pruebas-deck-wrap">
+      <div class="pruebas-deck" id="pruebasDeck">
+        {% for p in pruebas %}
+          <div class="deck-card{% if loop.first %} activa{% endif %}"
+               data-tipo="{{ p.tipo }}"
+               data-src="{{ url_for('static', filename='pruebas/' + p.archivo) }}"
+               style="--pos:{{ loop.index0 }};">
+            {% if p.tipo == 'video' %}
+              <video src="{{ url_for('static', filename='pruebas/' + p.archivo) }}" muted loop playsinline preload="metadata"></video>
+              <span class="play-badge">▶</span>
+            {% else %}
+              <img src="{{ url_for('static', filename='pruebas/' + p.archivo) }}" alt="{{ p.titulo }}" loading="lazy">
+            {% endif %}
+            <span class="prueba-stat">{{ p.resultado }}</span>
+            <div class="prueba-caption">
+              <div class="titulo">{{ p.titulo }}</div>
+              {% if p.descripcion %}<div class="desc">{{ p.descripcion }}</div>{% endif %}
+            </div>
           </div>
-        </div>
-      {% endfor %}
+        {% endfor %}
+      </div>
+      <div class="deck-dots" id="deckDots">
+        {% for p in pruebas %}<span class="dot-item{% if loop.first %} activo{% endif %}"></span>{% endfor %}
+      </div>
+      <p class="deck-hint">Toca la carta de arriba para verla en grande</p>
     </div>
     {% else %}
       <div class="vacio-pruebas">
@@ -170,9 +164,10 @@
   <div class="wrap">
     <div class="section-head" style="text-align:center; margin: 0 auto 42px;">
       <span class="kicker">Precios</span>
-      <h2>Elige cuánto quieres jugar</h2>
+      <h2>Un solo plan. Todo incluido.</h2>
       <p style="color:var(--text-dim); max-width:52ch; margin:14px auto 0;">
-        Mientras más tiempo eliges, más barato te sale el mes. Sin letras chiquitas: cancelas cuando quieras.
+        $5 al mes, sin letras chiquitas: el juego completo, todas las mecánicas
+        y actualizaciones incluidas. Cancelas cuando quieras.
       </p>
     </div>
 
@@ -226,9 +221,15 @@
 
 <footer>
   <div class="wrap">
-    © {{ 2026 }} Quid Game TikTok. Hecho para creadores de TikTok Live.
-    <a href="/descargar">Descargar</a> ·
-    <a href="mailto:soporte@example.com">Soporte</a>
+    <a href="{{ url_for('public.descargar') }}" class="footer-download">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+      Descargar instalador
+    </a>
+    <div>© {{ 2026 }} Quid Game TikTok. Hecho para creadores de TikTok Live.</div>
+    <div class="footer-links">
+      <a href="{{ url_for('public.mi_cuenta') }}">Mi cuenta</a> ·
+      <a href="mailto:soporte@example.com">Soporte</a>
+    </div>
   </div>
 </footer>
 
@@ -247,5 +248,57 @@
     document.getElementById('lightbox').classList.remove('abierto');
     document.getElementById('lightbox-content').innerHTML = '';
   }
+
+  // Mazo de "resultados en vivo": baraja solo, como cartas, y reproduce
+  // el video cuando le toca estar arriba.
+  (function () {
+    const deck = document.getElementById('pruebasDeck');
+    if (!deck) return;
+    const cartas = Array.from(deck.children);
+    const puntos = Array.from(document.querySelectorAll('#deckDots .dot-item'));
+    if (cartas.length < 2) return;
+
+    let orden = cartas.map((_, i) => i);
+    let pausado = false;
+
+    function pintar() {
+      cartas.forEach((carta, i) => {
+        const pos = orden.indexOf(i);
+        carta.style.setProperty('--pos', pos);
+        carta.style.zIndex = cartas.length - pos;
+        carta.classList.toggle('activa', pos === 0);
+
+        const video = carta.querySelector('video');
+        if (video) {
+          if (pos === 0) {
+            video.currentTime = 0;
+            video.play().catch(() => {});
+          } else {
+            video.pause();
+          }
+        }
+      });
+      puntos.forEach((p, i) => p.classList.toggle('activo', orden.indexOf(i) === 0));
+    }
+
+    function barajar() {
+      if (pausado) return;
+      const arriba = orden.shift();
+      orden.push(arriba);
+      pintar();
+    }
+
+    pintar();
+    const intervalo = setInterval(barajar, 4200);
+
+    // pausa el barajado si el usuario está mirando/interactuando con el mazo
+    deck.addEventListener('mouseenter', () => { pausado = true; });
+    deck.addEventListener('mouseleave', () => { pausado = false; });
+
+    deck.addEventListener('click', (e) => {
+      const carta = e.target.closest('.deck-card');
+      if (carta && carta.classList.contains('activa')) abrirLightbox(carta);
+    });
+  })();
 </script>
 {% endblock %}

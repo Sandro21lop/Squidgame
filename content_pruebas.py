@@ -39,6 +39,13 @@ PRUEBAS = [
         "titulo": "Resumen del Centro LIVE de TikTok",
         "descripcion": "36 minutos de transmisión, 3,243 me gusta y $4.82 en recompensas.",
     },
+    {
+        "tipo": "video",
+        "archivo": "video.mp4",
+        "resultado": "El juego en acción",
+        "titulo": "Así reacciona Quid Game TikTok a los regalos en vivo",
+        "descripcion": "Aparecen jugadores, se eliminan y suben de ronda, todo en tiempo real.",
+    },
 
     # Agrega los tuyos debajo siguiendo el mismo formato:
     #
