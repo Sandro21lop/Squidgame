@@ -44,13 +44,28 @@ def _upsert_customer(attrs, ls_customer_id):
 
 def _plan_desde_variant(variant_id, config):
     """Traduce el variant_id que manda Lemon Squeezy al plan interno
-    (mensual/semestral/anual), usando el mismo mapeo que tienes en .env."""
-    mapeo = {
-        str(config.get("LS_VARIANT_ID_MENSUAL") or ""): "mensual",
-        str(config.get("LS_VARIANT_ID_SEMESTRAL") or ""): "semestral",
-        str(config.get("LS_VARIANT_ID_ANUAL") or ""): "anual",
-    }
-    return mapeo.get(str(variant_id or ""), "mensual")
+    (mensual/semestral/anual), usando el mismo mapeo que tienes en .env.
+
+    OJO: mientras LS_VARIANT_ID_SEMESTRAL / LS_VARIANT_ID_ANUAL estén vacíos
+    en el .env (todavía no vendes esos planes), NO deben entrar al mapeo —
+    si entraran, las tres claves vacías colapsarían en una sola ("") y la
+    última pisaría a las otras, devolviendo un plan que no existe en PLANES
+    y tumbando el webhook con un ValueError (esto es justo lo que pasaba
+    con subscription_payment_success: ese evento no trae variant_id en el
+    payload, así que caía en la clave "" del mapeo)."""
+    variant_id = str(variant_id or "")
+    if not variant_id:
+        return "mensual"
+    mapeo = {}
+    for plan, cfg_key in (
+        ("mensual", "LS_VARIANT_ID_MENSUAL"),
+        ("semestral", "LS_VARIANT_ID_SEMESTRAL"),
+        ("anual", "LS_VARIANT_ID_ANUAL"),
+    ):
+        valor = str(config.get(cfg_key) or "")
+        if valor:  # solo variantes realmente configuradas
+            mapeo[valor] = plan
+    return mapeo.get(variant_id, "mensual")
 
 
 def _emitir_licencia_si_falta(sub, attrs, meta, config):
@@ -152,7 +167,16 @@ def lemonsqueezy_webhook():
 
         if event_name in ("subscription_created", "subscription_payment_success") and sub is not None:
             licencia_ya_existia = sub.licenses.first() is not None
-            emitida = _emitir_licencia_si_falta(sub, attrs, meta, current_app.config)
+            try:
+                emitida = _emitir_licencia_si_falta(sub, attrs, meta, current_app.config)
+            except Exception as e:
+                # Nunca dejar que un fallo generando la licencia tumbe el
+                # webhook completo (eso hace que Lemon Squeezy lo marque
+                # como fallido y reintente 3 veces). Ya guardamos la
+                # suscripción en la base; la licencia queda pendiente para
+                # emitirla a mano desde el panel admin.
+                print(f"[webhooks] No se pudo emitir licencia para sub {sub.id}: {e}")
+                emitida = False
             destinatario = sub.customer.email if sub.customer else None
             plan_nombre = PLANES.get(sub.plan, {}).get("nombre", sub.plan)
             if emitida:
