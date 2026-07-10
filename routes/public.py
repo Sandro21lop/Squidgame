@@ -29,13 +29,16 @@ def _checkout_urls(app):
 
 
 def _pasarela_configurada(app):
-    """True solo cuando ya pusiste API key, store id y los 3 variant id en
-    el .env. Mientras falte algo, /comprar cae al modo manual (link fijo
-    o '#') para no romper la landing."""
+    """True cuando ya pusiste API key, store id y el variant id de los
+    planes que REALMENTE existen en PLANES (hoy solo "mensual"). Antes esto
+    exigía los 3 variant id (incluyendo semestral/anual, que no se usan
+    todavía), así que nunca se cumplía y /comprar caía siempre al link fijo
+    sin pedir el usuario de TikTok. Mientras falte algo, /comprar cae al
+    modo manual (link fijo o '#') para no romper la landing."""
     return bool(
         app.config["LS_API_KEY"]
         and app.config["LS_STORE_ID"]
-        and all(app.config[key] for key in _VARIANT_KEYS.values())
+        and all(app.config[_VARIANT_KEYS[plan]] for plan in PLANES)
     )
 
 
