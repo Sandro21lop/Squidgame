@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="wrap admin-shell">
+  <div class="admin-top">
+    <h1 style="font-family:var(--display); font-size:26px; margin:0;">Generar licencia</h1>
+    <a href="{{ url_for('admin.dashboard') }}" class="small-btn">← Volver al panel</a>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, msg in messages %}
+      <div class="{{ 'success-msg' if category == 'success' else 'error-msg' }}">{{ msg }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  <div class="auth-card" style="max-width:520px; margin:0 0 28px;">
+    <p class="sub" style="margin-bottom:20px;">
+      Úsalo cuando alguien te pague por fuera de la pasarela automática (transferencia,
+      WhatsApp, etc.). El usuario de TikTok queda cifrado dentro de la clave.
+    </p>
+    <form method="POST">
+      <div class="field">
+        <label>Usuario de TikTok (sin @)</label>
+        <input type="text" name="tiktok_username" placeholder="ej: karla.ec" required>
+      </div>
+      <div class="field">
+        <label>Correo del comprador (opcional — si lo pones, le llega la clave por email)</label>
+        <input type="email" name="email" placeholder="cliente@correo.com">
+      </div>
+      <div class="field">
+        <label>Plan</label>
+        <select name="plan" style="width:100%; padding:12px 14px; border-radius:10px; border:1px solid var(--line); background:var(--bg-card); color:var(--text); font-size:14px;">
+          {% for clave, p in planes.items() %}
+            <option value="{{ clave }}">{{ p.nombre }} — ${{ p.precio }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label>Nota interna (opcional)</label>
+        <input type="text" name="nota_admin" placeholder="ej: pagó por transferencia Pichincha">
+      </div>
+      <button class="btn-block" type="submit">Generar clave</button>
+    </form>
+  </div>
+
+  {% if clave_generada %}
+    <div class="auth-card" style="max-width:520px;">
+      <p class="sub" style="margin-bottom:10px;">Clave generada — cópiala y envíasela al cliente:</p>
+      <div style="background:var(--bg-card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; font-family:var(--mono); font-size:14px; word-break:break-all; user-select:all;">
+        {{ clave_generada }}
+      </div>
+      <p class="sub" style="margin-top:14px; margin-bottom:0;">Vigente hasta: {{ expira.strftime('%Y-%m-%d') }}</p>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

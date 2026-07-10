@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="auth-page">
+  <div class="auth-card" style="text-align:center;">
+    {% if licencia %}
+      <h1>¡Listo! 🎉</h1>
+      <p class="sub">Esta es tu clave de licencia. Pégala en {{ game_name or "Quid Game TikTok" }} la primera vez que lo abras.</p>
+      <div class="field">
+        <input type="text" value="{{ licencia.license_key }}" readonly
+               onclick="this.select(); document.execCommand('copy');"
+               style="text-align:center; font-family:'JetBrains Mono', monospace; cursor:pointer;">
+      </div>
+      <p class="sub" style="font-size:13px;">Toca la clave para copiarla. Guárdala — también te servirá para soporte.</p>
+      <a href="/descargar" class="btn-primary" style="display:block; margin-top:10px;">Descargar {{ game_name or "Quid Game TikTok" }}</a>
+    {% elif tiktok_username %}
+      <h1>Confirmando tu pago…</h1>
+      <p class="sub">
+        Ya recibimos tu compra para <b>@{{ tiktok_username }}</b>. Tu clave se genera sola en cuanto
+        el pago se confirma — esto suele tardar solo unos segundos. Esta página se va a refrescar
+        sola; no cierres ni recargues a mano.
+      </p>
+      <p class="sub" style="font-size:13px;">Si pasan más de 5 minutos y no aparece, escríbenos con tu usuario de TikTok.</p>
+      <script>setTimeout(() => location.reload(), 4000);</script>
+    {% else %}
+      <h1>¡Listo! 🎉</h1>
+      <p class="sub">
+        Revisa tu correo (o el canal por el que confirmaste el pago): ahí te llega tu
+        clave de licencia. Pégala en {{ game_name or "Quid Game TikTok" }} la primera vez que lo abras, y ya puedes transmitir.
+      </p>
+      <a href="/descargar" class="btn-primary" style="display:block;">Descargar {{ game_name or "Quid Game TikTok" }}</a>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

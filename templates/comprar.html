@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="auth-page">
+  <div class="auth-card">
+    <h1>Plan {{ info.nombre }}</h1>
+    <p class="sub">
+      ${{ info.precio }} / {{ info.nombre|lower }} · tu clave queda ligada a este usuario de TikTok,
+      así que escríbelo bien — es el mismo que usas para transmitir.
+    </p>
+
+    {% if error %}<div class="error-msg">{{ error }}</div>{% endif %}
+
+    <form method="POST">
+      <div class="field">
+        <label>Usuario de TikTok</label>
+        <input type="text" name="tiktok_username" placeholder="@tuusuario" required autofocus>
+      </div>
+      <button class="btn-block" type="submit">Continuar al pago</button>
+    </form>
+
+    <p class="sub" style="margin-top:20px; margin-bottom:0;">
+      ¿Ya tienes una licencia? <a href="{{ url_for('public.mi_cuenta') }}" style="color: var(--rosa);">Gestiona tu suscripción aquí</a>.
+    </p>
+  </div>
+</div>
+{% endblock %}

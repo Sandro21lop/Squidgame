@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="auth-page">
+  <div class="auth-card">
+    <h1>Descargar {{ game_name or "Quid Game TikTok" }}</h1>
+    <p class="sub">Ingresa tu clave de licencia para bajar la última versión.</p>
+
+    {% if error %}<div class="error-msg">{{ error }}</div>{% endif %}
+
+    <form method="POST">
+      <div class="field">
+        <label>Clave de licencia</label>
+        <input type="text" name="license_key" placeholder="QGT-MEN-XXXXX-XXXXX-XXXXX" required>
+      </div>
+      <button class="btn-block" type="submit">Descargar</button>
+    </form>
+
+    <p class="sub" style="margin-top:20px; margin-bottom:0;">
+      ¿No tienes una clave todavía? <a href="/#precios" style="color: var(--rosa);">Elige tu plan aquí</a>.
+    </p>
+  </div>
+</div>
+{% endblock %}

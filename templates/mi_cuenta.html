@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="auth-page">
+  <div class="auth-card">
+    <h1>Mi cuenta</h1>
+    <p class="sub">
+      Escribe tu usuario de TikTok para ver tu suscripción, cambiar tu tarjeta,
+      descargar facturas o cancelar cuando quieras.
+    </p>
+
+    {% if error %}<div class="error-msg">{{ error }}</div>{% endif %}
+
+    <form method="POST">
+      <div class="field">
+        <label>Usuario de TikTok</label>
+        <input type="text" name="tiktok_username" placeholder="@tuusuario" required autofocus>
+      </div>
+      <button class="btn-block" type="submit">Ver mi suscripción</button>
+    </form>
+
+    <p class="sub" style="margin-top:20px; margin-bottom:0; font-size:13px;">
+      Te vamos a redirigir al portal seguro de Lemon Squeezy, la pasarela de pago
+      que procesa tu suscripción.
+    </p>
+  </div>
+</div>
+{% endblock %}

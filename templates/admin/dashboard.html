@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="wrap admin-shell">
+  <div class="admin-top">
+    <h1 style="font-family:var(--display); font-size:26px; margin:0;">Panel Quid Game TikTok</h1>
+    <div style="display:flex; gap:10px;">
+      <a href="{{ url_for('admin.generar') }}" class="small-btn" style="background:var(--rosa); color:#0a0a0e; border-color:var(--rosa);">+ Generar licencia</a>
+      <a href="{{ url_for('admin.decodificar') }}" class="small-btn">Decodificar clave</a>
+      <a href="{{ url_for('admin.logout') }}" class="small-btn">Salir</a>
+    </div>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, msg in messages %}
+      <div class="{{ 'success-msg' if category == 'success' else 'error-msg' }}">{{ msg }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  <div class="stat-row">
+    <div class="stat-box">
+      <div class="label">LICENCIAS VIGENTES</div>
+      <div class="value">{{ total_vigentes }}</div>
+    </div>
+    <div class="stat-box">
+      <div class="label">VENCIDAS / BLOQUEADAS</div>
+      <div class="value">{{ total_vencidas_o_bloqueadas }}</div>
+    </div>
+    <div class="stat-box">
+      <div class="label">MRR ESTIMADO</div>
+      <div class="value">${{ mrr }}</div>
+    </div>
+  </div>
+
+  <form method="GET" class="search-box" style="margin-bottom:20px;">
+    <input type="text" name="q" value="{{ q }}" placeholder="Buscar por usuario de TikTok o clave...">
+  </form>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Usuario TikTok</th>
+        <th>Plan</th>
+        <th>Origen</th>
+        <th>Vence</th>
+        <th>Estado</th>
+        <th>Equipo activado</th>
+        <th>Acciones</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for lic in licencias %}
+        {% set vigente = lic.esta_vigente(dias_gracia) %}
+        <tr>
+          <td>{{ '@' + lic.tiktok_username if lic.tiktok_username else '—' }}</td>
+          <td>{{ planes[lic.plan].nombre if lic.plan in planes else lic.plan }}</td>
+          <td>{{ lic.origen }}</td>
+          <td>{{ lic.expira_at.strftime('%Y-%m-%d') if lic.expira_at else '—' }}</td>
+          <td>
+            <span class="badge {{ 'active' if vigente and not lic.bloqueada_manualmente else ('cancelled' if lic.bloqueada_manualmente else 'expired') }}">
+              {{ 'bloqueada' if lic.bloqueada_manualmente else ('vigente' if vigente else 'vencida') }}
+            </span>
+          </td>
+          <td style="font-family:var(--mono); font-size:12px; color:var(--text-dim);">
+            {{ lic.instance_id or '—' }}
+          </td>
+          <td style="min-width:280px;">
+            <div style="display:flex; flex-wrap:wrap; gap:6px;">
+              <form method="POST" action="{{ url_for('admin.bloquear_licencia', license_id=lic.id) }}" style="display:inline;">
+                <button class="small-btn" type="submit">
+                  {{ 'Desbloquear' if lic.bloqueada_manualmente else 'Bloquear' }}
+                </button>
+              </form>
+              {% if lic.instance_id %}
+                <form method="POST" action="{{ url_for('admin.resetear_equipo', license_id=lic.id) }}" style="display:inline;">
+                  <button class="small-btn" type="submit" onclick="return confirm('¿Liberar el equipo activado de esta licencia?')">Resetear equipo</button>
+                </form>
+              {% endif %}
+              {% if lic.origen == 'manual' %}
+                <form method="POST" action="{{ url_for('admin.renovar_licencia', license_id=lic.id) }}" style="display:inline; display:flex; gap:4px;">
+                  <select name="plan" style="border-radius:6px; border:1px solid var(--line); background:var(--bg-card); color:var(--text); font-size:11.5px;">
+                    {% for clave, p in planes.items() %}
+                      <option value="{{ clave }}" {{ 'selected' if clave == lic.plan else '' }}>{{ p.nombre }}</option>
+                    {% endfor %}
+                  </select>
+                  <button class="small-btn" type="submit">Renovar</button>
+                </form>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+      {% else %}
+        <tr>
+          <td colspan="7" style="color:var(--text-dim); text-align:center; padding:30px 0;">
+            Todavía no has generado ninguna licencia.
+            <a href="{{ url_for('admin.generar') }}" style="color:var(--rosa);">Genera la primera aquí.</a>
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

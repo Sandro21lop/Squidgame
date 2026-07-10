@@ -1,0 +1,251 @@
+{% extends "base.html" %}
+{% block body %}
+
+<nav class="nav">
+  <div class="wrap">
+    <a href="/" class="logo">QUID<span>GAME</span></a>
+    <a href="#precios" class="nav-link" style="margin-right:18px; font-size:14px; color:var(--text-dim); text-decoration:none;">Planes</a>
+    <a href="#resultados" class="nav-link" style="margin-right:18px; font-size:14px; color:var(--text-dim); text-decoration:none;">Resultados</a>
+    <a href="{{ url_for('public.mi_cuenta') }}" class="nav-link" style="margin-right:18px; font-size:14px; color:var(--text-dim); text-decoration:none;">Mi cuenta</a>
+    <a href="#precios" class="nav-cta">Ver planes</a>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap">
+    <div>
+      <span class="eyebrow"><span class="dot"></span> Hecho para transmitir, no para configurar</span>
+      <h1>Tus regalos de TikTok,<br>convertidos en <span class="accent">juego de eliminación</span> en vivo.</h1>
+      <p class="lead">
+        Quid Game TikTok reacciona a cada regalo de tu live en tiempo real: aparecen jugadores,
+        se eliminan, suben de ronda. Tu audiencia deja de solo mirar y empieza a jugar contigo —
+        y tú dejas de solo transmitir y empiezas a facturar.
+      </p>
+      <div class="cta-row">
+        <a href="#precios" class="btn-primary">Elegir mi plan</a>
+        <span class="precio-inline">Desde <b>$5</b> / mes · cancelas cuando quieras · incluye actualizaciones</span>
+      </div>
+    </div>
+
+    <div class="feed-frame">
+      <div class="feed-top">
+        <span class="live-badge">EN VIVO</span>
+        <span>1,204 espectadores</span>
+      </div>
+      <div class="feed-viewport">
+        <div class="feed-scroll">
+          <div class="feed-item gift"><span class="who">@karla.ec</span> <span class="what">envió Capibara → +50 monedas</span></div>
+          <div class="feed-item"><span class="who">Jugador_08</span> <span class="what">avanzó a la ronda 2</span></div>
+          <div class="feed-item kill"><span class="who">Jugador_14</span> <span class="what">fue eliminado</span></div>
+          <div class="feed-item gift"><span class="who">@luis.tk</span> <span class="what">envió Corazón Coreano → +120 monedas</span></div>
+          <div class="feed-item"><span class="who">Jugador_02</span> <span class="what">esquivó por poco</span></div>
+          <div class="feed-item gift"><span class="who">@vale_23</span> <span class="what">envió Sombrero → +30 monedas</span></div>
+          <div class="feed-item kill"><span class="who">Jugador_05</span> <span class="what">fue eliminado</span></div>
+          <div class="feed-item"><span class="who">Jugador_11</span> <span class="what">llegó a la final</span></div>
+          <!-- duplicado para el loop del scroll -->
+          <div class="feed-item gift"><span class="who">@karla.ec</span> <span class="what">envió Capibara → +50 monedas</span></div>
+          <div class="feed-item"><span class="who">Jugador_08</span> <span class="what">avanzó a la ronda 2</span></div>
+          <div class="feed-item kill"><span class="who">Jugador_14</span> <span class="what">fue eliminado</span></div>
+          <div class="feed-item gift"><span class="who">@luis.tk</span> <span class="what">envió Corazón Coreano → +120 monedas</span></div>
+          <div class="feed-item"><span class="who">Jugador_02</span> <span class="what">esquivó por poco</span></div>
+          <div class="feed-item gift"><span class="who">@vale_23</span> <span class="what">envió Sombrero → +30 monedas</span></div>
+          <div class="feed-item kill"><span class="who">Jugador_05</span> <span class="what">fue eliminado</span></div>
+          <div class="feed-item"><span class="who">Jugador_11</span> <span class="what">llegó a la final</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section id="como-funciona">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="kicker">Cómo funciona</span>
+      <h2>De pagar a transmitir, en tres pasos</h2>
+    </div>
+    <div class="pasos">
+      <div class="paso">
+        <div class="num">01</div>
+        <h3>Eliges tu plan</h3>
+        <p>Un solo plan, $5 al mes. Recibes tu clave de licencia por correo al instante, ligada a tu usuario de TikTok.</p>
+      </div>
+      <div class="paso">
+        <div class="num">02</div>
+        <h3>Activas el juego</h3>
+        <p>Abres Quid Game TikTok, pegas tu clave una sola vez. Queda activado en ese equipo.</p>
+      </div>
+      <div class="paso">
+        <div class="num">03</div>
+        <h3>Transmites</h3>
+        <p>Conectas tu cuenta de TikTok Live y el juego reacciona solo a los regalos de tu audiencia.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="incluye">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="kicker">Qué incluye tu suscripción</span>
+      <h2>Todo listo, sin tener que programar nada</h2>
+    </div>
+    <div class="features">
+      <div class="feature">
+        <span class="icon">🎁</span>
+        <h3>Mecánicas de regalos configuradas</h3>
+        <p>Capibara, Sombrero, Corazón Coreano, Rosa y más — cada uno con su efecto en el juego.</p>
+      </div>
+      <div class="feature">
+        <span class="icon">🗣️</span>
+        <h3>Voz automática</h3>
+        <p>El juego anuncia y celebra los regalos con voz generada, sin que tengas que hablar tú.</p>
+      </div>
+      <div class="feature">
+        <span class="icon">🖥️</span>
+        <h3>Modo compacto para OBS</h3>
+        <p>Pantalla completa o ventana angosta para dejar espacio a tu cámara en el stream.</p>
+      </div>
+      <div class="feature">
+        <span class="icon">🔄</span>
+        <h3>Actualizaciones incluidas</h3>
+        <p>Mientras tu licencia esté vigente, siempre puedes bajar la última versión del juego.</p>
+      </div>
+      <div class="feature">
+        <span class="icon">📊</span>
+        <h3>Panel de eliminación en vivo</h3>
+        <p>Kill feed que muestra en tiempo real quién avanza y quién queda fuera.</p>
+      </div>
+      <div class="feature">
+        <span class="icon">🔒</span>
+        <h3>Licencia atada a tu cuenta</h3>
+        <p>Tu clave lleva tu usuario de TikTok cifrado adentro. Se activa en tu PC de streaming — difícil de compartir o revender.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="resultados">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="kicker">Resultados en vivo</span>
+      <h2>Así se ve Quid Game TikTok en streams reales</h2>
+    </div>
+
+    {% if pruebas %}
+    <div class="pruebas-grid">
+      {% for p in pruebas %}
+        <div class="prueba-card"
+             data-tipo="{{ p.tipo }}"
+             data-src="{{ url_for('static', filename='pruebas/' + p.archivo) }}"
+             onclick="abrirLightbox(this)">
+          {% if p.tipo == 'video' %}
+            <video src="{{ url_for('static', filename='pruebas/' + p.archivo) }}" muted loop playsinline preload="metadata"></video>
+            <span class="play-badge">▶</span>
+          {% else %}
+            <img src="{{ url_for('static', filename='pruebas/' + p.archivo) }}" alt="{{ p.titulo }}" loading="lazy">
+          {% endif %}
+          <span class="prueba-stat">{{ p.resultado }}</span>
+          <div class="prueba-caption">
+            <div class="titulo">{{ p.titulo }}</div>
+            {% if p.descripcion %}<div class="desc">{{ p.descripcion }}</div>{% endif %}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+    {% else %}
+      <div class="vacio-pruebas">
+        Todavía no has agregado capturas o clips. Edita <code>content_pruebas.py</code>
+        y pon tus archivos en <code>static/pruebas/</code> para que aparezcan aquí.
+      </div>
+    {% endif %}
+  </div>
+</section>
+
+<div class="lightbox" id="lightbox" onclick="cerrarLightbox()">
+  <button class="lightbox-close" onclick="cerrarLightbox(event)">Cerrar ✕</button>
+  <div class="lightbox-content" id="lightbox-content"></div>
+</div>
+
+<section id="precios">
+  <div class="wrap">
+    <div class="section-head" style="text-align:center; margin: 0 auto 42px;">
+      <span class="kicker">Precios</span>
+      <h2>Elige cuánto quieres jugar</h2>
+      <p style="color:var(--text-dim); max-width:52ch; margin:14px auto 0;">
+        Mientras más tiempo eliges, más barato te sale el mes. Sin letras chiquitas: cancelas cuando quieras.
+      </p>
+    </div>
+
+    <div class="planes-grid" style="max-width:360px; margin:0 auto;">
+      <div class="plan-card destacado">
+        <div class="plan-nombre">Mensual</div>
+        <div class="plan-monto">$5 <span>/ mes</span></div>
+        <div class="plan-equiv">Cancela cuando quieras, sin permanencia</div>
+        <ul>
+          <li>Juego completo Quid Game TikTok</li>
+          <li>Todas las mecánicas de regalos</li>
+          <li>Activación en 1 equipo</li>
+          <li>Actualizaciones mientras esté vigente</li>
+        </ul>
+        <a href="{{ url_for('public.comprar', plan='mensual') }}" class="btn-plan btn-plan-destacado">Comprar mensual</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="faq">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="kicker">Preguntas frecuentes</span>
+      <h2>Antes de que preguntes</h2>
+    </div>
+    <div class="faq">
+      <details>
+        <summary>¿Cómo recibo mi clave de licencia?</summary>
+        <p>Al confirmar tu pago te llega tu clave, ligada a tu usuario de TikTok. La usas una sola vez para activar el juego en tu equipo.</p>
+      </details>
+      <details>
+        <summary>¿Qué pasa si cancelo o se vence mi plan?</summary>
+        <p>Puedes seguir usando el juego hasta el final del período que ya pagaste. Después de eso, la licencia deja de validar y no podrás bajar nuevas actualizaciones.</p>
+      </details>
+      <details>
+        <summary>¿Puedo usar la misma clave en dos computadoras?</summary>
+        <p>Cada licencia se activa en un equipo, y lleva tu usuario de TikTok cifrado adentro para evitar reventa. Si cambias de PC, contáctanos y te la liberamos.</p>
+      </details>
+      <details>
+        <summary>¿Cómo cancelo?</summary>
+        <p>Desde "Mi cuenta" entras al portal de tu suscripción y cancelas cuando quieras. Sigues jugando hasta el final del mes que ya pagaste.</p>
+      </details>
+      <details>
+        <summary>¿Necesito saber programar?</summary>
+        <p>No. Instalas, pegas tu clave, conectas tu usuario de TikTok y listo.</p>
+      </details>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    © {{ 2026 }} Quid Game TikTok. Hecho para creadores de TikTok Live.
+    <a href="/descargar">Descargar</a> ·
+    <a href="mailto:soporte@example.com">Soporte</a>
+  </div>
+</footer>
+
+<script>
+  function abrirLightbox(card) {
+    const tipo = card.dataset.tipo;
+    const src = card.dataset.src;
+    const contenedor = document.getElementById('lightbox-content');
+    contenedor.innerHTML = tipo === 'video'
+      ? `<video src="${src}" controls autoplay playsinline></video>`
+      : `<img src="${src}" alt="">`;
+    document.getElementById('lightbox').classList.add('abierto');
+  }
+  function cerrarLightbox(e) {
+    if (e) e.stopPropagation();
+    document.getElementById('lightbox').classList.remove('abierto');
+    document.getElementById('lightbox-content').innerHTML = '';
+  }
+</script>
+{% endblock %}
