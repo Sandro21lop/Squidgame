@@ -4,8 +4,8 @@
   <div class="auth-card">
     <h1>Mi cuenta</h1>
     <p class="sub">
-      Escribe tu usuario de TikTok para ver tu suscripción, cambiar tu tarjeta,
-      descargar facturas o cancelar cuando quieras.
+      Escribe tu usuario de TikTok para ver el estado de tu suscripción de
+      PayPal o cancelarla cuando quieras.
     </p>
 
     {% if error %}<div class="error-msg">{{ error }}</div>{% endif %}
@@ -13,14 +13,32 @@
     <form method="POST">
       <div class="field">
         <label>Usuario de TikTok</label>
-        <input type="text" name="tiktok_username" placeholder="@tuusuario" required autofocus>
+        <input type="text" name="tiktok_username" placeholder="@tuusuario" value="{{ tiktok_username or '' }}" required autofocus>
       </div>
       <button class="btn-block" type="submit">Ver mi suscripción</button>
     </form>
 
+    {% if suscripcion %}
+    <div class="sub" style="margin-top:20px;">
+      <p><strong>Plan:</strong> {{ suscripcion.plan }}</p>
+      <p><strong>Estado en PayPal:</strong> {{ suscripcion.status }}</p>
+      {% if suscripcion.next_billing %}
+      <p><strong>Próximo cobro:</strong> {{ suscripcion.next_billing }}</p>
+      {% endif %}
+
+      {% if suscripcion.status == "ACTIVE" %}
+      <form method="POST" action="{{ url_for('public.mi_cuenta_cancelar', subscription_id=suscripcion.id) }}"
+            onsubmit="return confirm('¿Seguro que quieres cancelar tu suscripción?');">
+        <input type="hidden" name="tiktok_username" value="{{ tiktok_username }}">
+        <button class="btn-block" type="submit" style="background:#c0392b;">Cancelar suscripción</button>
+      </form>
+      {% endif %}
+    </div>
+    {% endif %}
+
     <p class="sub" style="margin-top:20px; margin-bottom:0; font-size:13px;">
-      Te vamos a redirigir al portal seguro de Lemon Squeezy, la pasarela de pago
-      que procesa tu suscripción.
+      Para cambiar tu tarjeta o método de pago, hazlo directamente desde tu
+      cuenta de PayPal en paypal.com.
     </p>
   </div>
 </div>

@@ -5,17 +5,22 @@ from flask import Blueprint, request, current_app, abort
 
 from extensions import db
 from models import Customer, Subscription, License, WebhookEvent
-from lemonsqueezy_client import verify_webhook_signature
+import paypal_client
 from license_generator import generar_licencia, normalizar_tiktok, PLANES
 import emailer
 
 webhooks_bp = Blueprint("webhooks", __name__, url_prefix="/webhooks")
 
-# NOTA: cuando conectes Lemon Squeezy (o la pasarela que elijas), lo más
-# limpio es que este webhook, al recibir "order_created"/"subscription_created",
-# pida el usuario de TikTok en el checkout (campo personalizado) y llame a
-# license_generator.generar_licencia(...) para emitir la clave — así todas
-# las licencias, manuales o pagadas, quedan en el mismo formato QGT-...
+# Pasarela activa: PayPal (Subscriptions).
+
+_PAYPAL_STATUS_MAP = {
+    "ACTIVE": "active",
+    "APPROVAL_PENDING": "unpaid",
+    "APPROVED": "unpaid",
+    "SUSPENDED": "paused",
+    "CANCELLED": "cancelled",
+    "EXPIRED": "expired",
+}
 
 
 def _parse_fecha(valor):
@@ -27,205 +32,188 @@ def _parse_fecha(valor):
         return None
 
 
-def _upsert_customer(attrs, ls_customer_id):
-    email = attrs.get("user_email") or attrs.get("customer_email")
+def _plan_desde_paypal_plan_id(plan_id, config):
+    plan_id = str(plan_id or "")
+    mapeo = {}
+    for plan, cfg_key in (
+        ("mensual", "PAYPAL_PLAN_ID_MENSUAL"),
+        ("semestral", "PAYPAL_PLAN_ID_SEMESTRAL"),
+        ("anual", "PAYPAL_PLAN_ID_ANUAL"),
+    ):
+        valor = str(config.get(cfg_key) or "")
+        if valor:
+            mapeo[valor] = plan
+    return mapeo.get(plan_id, "mensual")
+
+
+def _upsert_customer_paypal(email, name, payer_id):
     if not email:
         return None
     customer = Customer.query.filter_by(email=email).first()
     if not customer:
-        customer = Customer(email=email, ls_customer_id=str(ls_customer_id or ""))
+        customer = Customer(email=email, paypal_payer_id=str(payer_id or ""))
         db.session.add(customer)
         db.session.flush()
-    customer.name = attrs.get("user_name") or customer.name
-    if ls_customer_id:
-        customer.ls_customer_id = str(ls_customer_id)
+    customer.name = name or customer.name
+    if payer_id:
+        customer.paypal_payer_id = str(payer_id)
     return customer
 
 
-def _plan_desde_variant(variant_id, config):
-    """Traduce el variant_id que manda Lemon Squeezy al plan interno
-    (mensual/semestral/anual), usando el mismo mapeo que tienes en .env.
+def _upsert_subscription_paypal(resource, event_name, config):
+    paypal_sub_id = str(resource.get("id"))
+    sub = Subscription.query.filter_by(paypal_subscription_id=paypal_sub_id).first()
 
-    OJO: mientras LS_VARIANT_ID_SEMESTRAL / LS_VARIANT_ID_ANUAL estén vacíos
-    en el .env (todavía no vendes esos planes), NO deben entrar al mapeo —
-    si entraran, las tres claves vacías colapsarían en una sola ("") y la
-    última pisaría a las otras, devolviendo un plan que no existe en PLANES
-    y tumbando el webhook con un ValueError (esto es justo lo que pasaba
-    con subscription_payment_success: ese evento no trae variant_id en el
-    payload, así que caía en la clave "" del mapeo)."""
-    variant_id = str(variant_id or "")
-    if not variant_id:
-        return "mensual"
-    mapeo = {}
-    for plan, cfg_key in (
-        ("mensual", "LS_VARIANT_ID_MENSUAL"),
-        ("semestral", "LS_VARIANT_ID_SEMESTRAL"),
-        ("anual", "LS_VARIANT_ID_ANUAL"),
-    ):
-        valor = str(config.get(cfg_key) or "")
-        if valor:  # solo variantes realmente configuradas
-            mapeo[valor] = plan
-    return mapeo.get(variant_id, "mensual")
+    subscriber = resource.get("subscriber", {}) or {}
+    email = subscriber.get("email_address")
+    name_obj = subscriber.get("name", {}) or {}
+    name = " ".join(filter(None, [name_obj.get("given_name"), name_obj.get("surname")])) or None
+    payer_id = subscriber.get("payer_id")
 
-
-def _emitir_licencia_si_falta(sub, attrs, meta, config):
-    """Si esta suscripción todavía no tiene una licencia QGT-... propia,
-    la genera ahora. El usuario de TikTok viaja en meta.custom_data (lo
-    metimos al crear el checkout en routes/public.py). Idempotente: si
-    ya existe una licencia para esta suscripción, no crea otra (esto
-    puede llamarse varias veces si Lemon Squeezy reintenta el webhook,
-    o si llegan tanto order_created como subscription_created).
-
-    Devuelve True si emitió una licencia nueva (para que el caller sepa
-    si debe mandar el correo de "tu licencia está lista" o no)."""
-    if sub is None or sub.licenses.first() is not None:
-        return False
-
-    custom_data = (meta or {}).get("custom_data") or {}
-    tiktok_username = normalizar_tiktok(custom_data.get("tiktok_username", ""))
-    if not tiktok_username:
-        # No debería pasar si el checkout se creó desde /comprar, pero si
-        # llega una suscripción sin ese dato (ej. creada a mano en el
-        # dashboard de LS), no podemos emitir la licencia: queda pendiente
-        # para que la generes manualmente desde el panel admin.
-        return False
-
-    plan = _plan_desde_variant(attrs.get("variant_id"), config)
-    sub.plan = plan
-
-    clave, expira = generar_licencia(tiktok_username, plan, config["SECRET_KEY"])
-    db.session.add(License(
-        license_key=clave,
-        origen="lemonsqueezy",
-        tiktok_username=tiktok_username,
-        plan=plan,
-        expira_at=expira,
-        email=(sub.customer.email if sub.customer else None),
-        subscription_id=sub.id,
-        activation_limit=1,
-    ))
-    return True
-
-
-def _upsert_subscription(data, attrs):
-    ls_sub_id = str(data.get("id"))
-    sub = Subscription.query.filter_by(ls_subscription_id=ls_sub_id).first()
-    customer = _upsert_customer(attrs, attrs.get("customer_id"))
+    customer = _upsert_customer_paypal(email, name, payer_id)
     if not customer:
         return None
 
     if not sub:
-        sub = Subscription(ls_subscription_id=ls_sub_id, customer_id=customer.id)
+        sub = Subscription(paypal_subscription_id=paypal_sub_id, customer_id=customer.id)
         db.session.add(sub)
 
     sub.customer_id = customer.id
-    sub.variant_id = str(attrs.get("variant_id") or "")
-    sub.variant_name = attrs.get("variant_name")
-    sub.status = attrs.get("status") or sub.status
-    sub.renews_at = _parse_fecha(attrs.get("renews_at"))
-    sub.ends_at = _parse_fecha(attrs.get("ends_at"))
-    sub.trial_ends_at = _parse_fecha(attrs.get("trial_ends_at"))
-    sub.card_brand = attrs.get("card_brand")
-    sub.card_last_four = attrs.get("card_last_four")
+    plan_id = resource.get("plan_id")
+    sub.paypal_plan_id = str(plan_id or "")
+    sub.plan = _plan_desde_paypal_plan_id(plan_id, config)
+
+    status = resource.get("status") or ("ACTIVE" if event_name == "PAYMENT.SALE.COMPLETED" else None)
+    if status:
+        sub.status = _PAYPAL_STATUS_MAP.get(status, sub.status or "active")
+
+    billing_info = resource.get("billing_info", {}) or {}
+    next_billing = billing_info.get("next_billing_time")
+    if next_billing:
+        sub.renews_at = _parse_fecha(next_billing)
+
     return sub
 
 
-@webhooks_bp.route("/lemonsqueezy", methods=["POST"])
-def lemonsqueezy_webhook():
-    raw = request.get_data()
-    signature = request.headers.get("X-Signature", "")
-    secret = current_app.config["LS_WEBHOOK_SECRET"]
+def _emitir_o_renovar_licencia_paypal(sub, resource, event_name, config):
+    if sub is None:
+        return None, None
 
-    if not verify_webhook_signature(raw, signature, secret):
+    tiktok_username = normalizar_tiktok(resource.get("custom_id", "") or "")
+    licencia_existente = sub.licenses.first()
+
+    if licencia_existente is None:
+        if not tiktok_username:
+            return None, None
+
+        clave, expira = generar_licencia(tiktok_username, sub.plan, config["SECRET_KEY"])
+        lic = License(
+            license_key=clave,
+            origen="paypal",
+            tiktok_username=tiktok_username,
+            plan=sub.plan,
+            expira_at=expira,
+            email=(sub.customer.email if sub.customer else None),
+            subscription_id=sub.id,
+            activation_limit=1,
+        )
+        db.session.add(lic)
+        plan_nombre = PLANES.get(sub.plan, {}).get("nombre", sub.plan)
+        return "nueva", dict(
+            destinatario=(sub.customer.email if sub.customer else None),
+            tiktok_username=tiktok_username, license_key=clave,
+            plan_nombre=plan_nombre, expira=expira,
+        )
+
+    if event_name == "PAYMENT.SALE.COMPLETED":
+        plan_nombre = PLANES.get(sub.plan, {}).get("nombre", sub.plan)
+        return "renovada", dict(
+            destinatario=(sub.customer.email if sub.customer else None),
+            tiktok_username=licencia_existente.tiktok_username,
+            plan_nombre=plan_nombre, renueva_el=sub.renews_at,
+        )
+
+    return None, None
+
+
+@webhooks_bp.route("/paypal", methods=["POST"])
+def paypal_webhook():
+    """Endpoint que registras en developer.paypal.com -> tu app -> Webhooks
+    apuntando a https://TU-DOMINIO.com/webhooks/paypal, suscrito (al menos) a:
+      - BILLING.SUBSCRIPTION.ACTIVATED
+      - BILLING.SUBSCRIPTION.UPDATED
+      - BILLING.SUBSCRIPTION.CANCELLED
+      - BILLING.SUBSCRIPTION.SUSPENDED
+      - BILLING.SUBSCRIPTION.EXPIRED
+      - PAYMENT.SALE.COMPLETED   (cada cobro, incluidas renovaciones)
+    """
+    raw = request.get_data()
+    config = current_app.config
+
+    ok = paypal_client.verify_webhook_signature(
+        client_id=config["PAYPAL_CLIENT_ID"],
+        client_secret=config["PAYPAL_CLIENT_SECRET"],
+        mode=config["PAYPAL_MODE"],
+        webhook_id=config["PAYPAL_WEBHOOK_ID"],
+        headers=request.headers,
+        raw_body=raw,
+    )
+    if not ok:
         abort(400, "Firma inválida")
 
     payload = request.get_json(silent=True) or {}
-    meta = payload.get("meta", {})
-    event_name = meta.get("event_name", "desconocido")
-    data = payload.get("data", {})
-    attrs = data.get("attributes", {})
+    event_name = payload.get("event_type", "desconocido")
+    resource = payload.get("resource", {}) or {}
 
     db.session.add(WebhookEvent(event_name=event_name, payload=json.dumps(payload)[:20000]))
 
-    correo_pendiente = None  # (tipo, kwargs) — se envía DESPUÉS del commit
+    correo_pendiente = None
 
-    if event_name in (
-        "subscription_created",
-        "subscription_updated",
-        "subscription_cancelled",
-        "subscription_resumed",
-        "subscription_expired",
-        "subscription_paused",
-        "subscription_unpaused",
-        "subscription_payment_success",
-        "subscription_payment_failed",
-        "subscription_payment_recovered",
-    ):
-        sub = _upsert_subscription(data, attrs)
+    if event_name.startswith("BILLING.SUBSCRIPTION.") or event_name == "PAYMENT.SALE.COMPLETED":
+        # Para PAYMENT.SALE.COMPLETED, PayPal manda el sale en `resource`
+        # pero la suscripción va en `resource['billing_agreement_id']`,
+        # no en `resource['id']` — normalizamos eso aquí.
+        if event_name == "PAYMENT.SALE.COMPLETED":
+            sub_id = resource.get("billing_agreement_id")
+            sub = Subscription.query.filter_by(paypal_subscription_id=str(sub_id)).first()
+            if sub is None and sub_id:
+                # Suscripción activa que aún no vimos vía BILLING.SUBSCRIPTION.*
+                # (puede llegar en otro orden): la pedimos a la API para
+                # tener sus datos completos y crearla.
+                try:
+                    datos = paypal_client.get_subscription(
+                        config["PAYPAL_CLIENT_ID"], config["PAYPAL_CLIENT_SECRET"],
+                        config["PAYPAL_MODE"], sub_id,
+                    )
+                    sub = _upsert_subscription_paypal(datos, event_name, config)
+                except paypal_client.PayPalError as e:
+                    print(f"[webhooks] No se pudo recuperar suscripción {sub_id}: {e}")
+                    sub = None
+            resource_para_licencia = {"custom_id": sub.licenses.first().tiktok_username if (sub and sub.licenses.first()) else ""}
+        else:
+            sub = _upsert_subscription_paypal(resource, event_name, config)
+            resource_para_licencia = resource
+
         if sub is not None:
-            db.session.flush()  # asegura sub.id antes de ligar la licencia
+            db.session.flush()
 
-        if event_name in ("subscription_created", "subscription_payment_success") and sub is not None:
-            licencia_ya_existia = sub.licenses.first() is not None
+        if event_name in ("BILLING.SUBSCRIPTION.ACTIVATED", "PAYMENT.SALE.COMPLETED") and sub is not None:
             try:
-                emitida = _emitir_licencia_si_falta(sub, attrs, meta, current_app.config)
+                tipo, kwargs = _emitir_o_renovar_licencia_paypal(sub, resource_para_licencia, event_name, config)
+                correo_pendiente = (tipo, kwargs) if tipo else None
             except Exception as e:
                 # Nunca dejar que un fallo generando la licencia tumbe el
-                # webhook completo (eso hace que Lemon Squeezy lo marque
-                # como fallido y reintente 3 veces). Ya guardamos la
-                # suscripción en la base; la licencia queda pendiente para
-                # emitirla a mano desde el panel admin.
-                print(f"[webhooks] No se pudo emitir licencia para sub {sub.id}: {e}")
-                emitida = False
-            destinatario = sub.customer.email if sub.customer else None
-            plan_nombre = PLANES.get(sub.plan, {}).get("nombre", sub.plan)
-            if emitida:
-                lic_nueva = sub.licenses.first()
-                correo_pendiente = ("nueva", dict(
-                    destinatario=destinatario, tiktok_username=lic_nueva.tiktok_username,
-                    license_key=lic_nueva.license_key, plan_nombre=plan_nombre,
-                    expira=lic_nueva.expira_at,
-                ))
-            elif licencia_ya_existia and event_name == "subscription_payment_success":
-                # No es la primera vez que se paga: es una renovación del ciclo.
-                # No se genera clave nueva (la misma sigue vigente porque su
-                # validez depende del estado de la suscripción, no de una
-                # fecha fija dentro de la clave) — solo avisamos por correo.
-                lic = sub.licenses.first()
-                correo_pendiente = ("renovada", dict(
-                    destinatario=destinatario,
-                    tiktok_username=(lic.tiktok_username if lic else ""),
-                    plan_nombre=plan_nombre, renueva_el=sub.renews_at,
-                ))
+                # webhook (PayPal lo reintentaría). La suscripción ya quedó
+                # guardada; la licencia se puede emitir a mano si hace falta.
+                print(f"[webhooks] No se pudo emitir/renovar licencia para sub {sub.id}: {e}")
 
-        elif event_name in ("subscription_cancelled", "subscription_expired") and sub is not None:
+        elif event_name in ("BILLING.SUBSCRIPTION.CANCELLED", "BILLING.SUBSCRIPTION.EXPIRED") and sub is not None:
             lic = sub.licenses.first()
-            destinatario = sub.customer.email if sub.customer else None
             correo_pendiente = ("cancelada", dict(
-                destinatario=destinatario,
+                destinatario=(sub.customer.email if sub.customer else None),
                 tiktok_username=(lic.tiktok_username if lic else ""),
                 sigue_hasta=sub.ends_at,
             ))
-
-    elif event_name == "license_key_created":
-        ls_license_key_id = str(data.get("id"))
-        lic = License.query.filter_by(ls_license_key_id=ls_license_key_id).first()
-        customer = _upsert_customer(attrs, attrs.get("customer_id"))
-        sub = None
-        if attrs.get("order_id"):
-            sub = Subscription.query.filter_by(
-                customer_id=customer.id if customer else None,
-            ).order_by(Subscription.id.desc()).first()
-
-        if not lic:
-            lic = License(
-                ls_license_key_id=ls_license_key_id,
-                license_key=attrs.get("key"),
-                subscription_id=sub.id if sub else None,
-            )
-            db.session.add(lic)
-        lic.ls_status = attrs.get("status", lic.ls_status)
-        lic.activation_limit = attrs.get("activation_limit") or lic.activation_limit
 
     db.session.commit()
 
@@ -239,8 +227,6 @@ def lemonsqueezy_webhook():
             elif tipo == "cancelada":
                 emailer.enviar_licencia_cancelada(current_app.config, **kwargs)
         except Exception as e:
-            # Un correo fallido nunca debe hacer que Lemon Squeezy reintente
-            # el webhook completo (ya se guardó todo en la base de datos).
             print(f"[webhooks] No se pudo enviar el correo '{tipo}': {e}")
 
     return {"received": True}, 200

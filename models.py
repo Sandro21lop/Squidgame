@@ -14,7 +14,7 @@ class Customer(db.Model):
     __tablename__ = "customers"
 
     id = db.Column(db.Integer, primary_key=True)
-    ls_customer_id = db.Column(db.String(64), unique=True, index=True)
+    paypal_payer_id = db.Column(db.String(64), unique=True, index=True, nullable=True)
     email = db.Column(db.String(255), unique=True, nullable=False, index=True)
     name = db.Column(db.String(255))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -34,10 +34,8 @@ class Subscription(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     customer_id = db.Column(db.Integer, db.ForeignKey("customers.id"), nullable=False)
 
-    ls_subscription_id = db.Column(db.String(64), unique=True, index=True)
-    ls_order_id = db.Column(db.String(64))
-    variant_id = db.Column(db.String(64))
-    variant_name = db.Column(db.String(255))
+    paypal_subscription_id = db.Column(db.String(64), unique=True, index=True, nullable=True)
+    paypal_plan_id = db.Column(db.String(64))
 
     # mensual | semestral | anual
     plan = db.Column(db.String(32), default="mensual")
@@ -67,7 +65,7 @@ class Subscription(db.Model):
         if self.status in ("active", "on_trial"):
             return True
         if self.status == "past_due":
-            return True  # LS sigue reintentando el cobro
+            return True  # PayPal sigue reintentando el cobro
         if self.status in ("cancelled", "expired", "paused", "unpaid"):
             if self.ends_at:
                 from datetime import timedelta
@@ -82,15 +80,10 @@ class License(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     subscription_id = db.Column(db.Integer, db.ForeignKey("subscriptions.id"), nullable=True)
 
-    ls_license_key_id = db.Column(db.String(64), unique=True, index=True)
     license_key = db.Column(db.String(128), unique=True, index=True, nullable=False)
 
-    # espejo del estado que reporta Lemon Squeezy: active | inactive | expired | disabled
-    # (solo aplica a licencias con origen="lemonsqueezy")
-    ls_status = db.Column(db.String(32), default="active")
-
     # de dónde salió esta licencia: "manual" (generada por ti desde el panel)
-    # o "lemonsqueezy" (cuando conectes la pasarela de pago)
+    # o "paypal" (pagada por la pasarela)
     origen = db.Column(db.String(32), default="manual")
 
     # el usuario de TikTok va cifrado DENTRO de license_key, pero también lo
@@ -101,7 +94,7 @@ class License(db.Model):
 
     # correo del comprador — para licencias "manual" (generadas a mano en el
     # panel) es el único lugar donde lo guardamos, ya que no hay Customer.
-    # Para licencias "lemonsqueezy" el correo real vive en subscription.customer.email;
+    # Para licencias "paypal" el correo real vive en subscription.customer.email;
     # esta columna queda como copia de conveniencia para mostrar en el panel.
     email = db.Column(db.String(255), nullable=True)
 
@@ -109,8 +102,8 @@ class License(db.Model):
     activation_usage = db.Column(db.Integer, default=0)
     instance_id = db.Column(db.String(128), nullable=True)  # equipo donde se activó
 
-    # control manual tuyo, independiente de Lemon Squeezy
-    # (para banear a alguien sin tener que tocar nada en LS)
+    # control manual tuyo, independiente de PayPal
+    # (para banear a alguien sin tener que tocar nada en PayPal)
     bloqueada_manualmente = db.Column(db.Boolean, default=False)
     nota_admin = db.Column(db.String(500))
 
@@ -138,7 +131,6 @@ class WebhookEvent(db.Model):
     __tablename__ = "webhook_events"
 
     id = db.Column(db.Integer, primary_key=True)
-    ls_event_id = db.Column(db.String(128), index=True)
     event_name = db.Column(db.String(64), index=True)
     payload = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)

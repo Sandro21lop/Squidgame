@@ -23,20 +23,27 @@ class Config:
     # Marca / nombre del producto (cámbialo aquí y se actualiza en todo el sitio)
     GAME_NAME = os.environ.get("GAME_NAME", "Quid Game TikTok")
 
-    # Lemon Squeezy (pendiente de configurar — por ahora las licencias se
-    # generan a mano desde el panel admin en /admin/licencias/generar)
-    LS_API_KEY = os.environ.get("LEMONSQUEEZY_API_KEY", "")
-    LS_WEBHOOK_SECRET = os.environ.get("LEMONSQUEEZY_WEBHOOK_SECRET", "")
-    LS_STORE_ID = os.environ.get("LEMONSQUEEZY_STORE_ID", "")
+    # PayPal (Subscriptions). Créalas en developer.paypal.com -> tu app
+    # REST -> Client ID / Secret. PAYPAL_MODE = "sandbox" mientras pruebas,
+    # "live" cuando ya cobres de verdad. Si algo falta, /comprar cae al
+    # modo manual (link fijo o '#') para no romper la landing.
+    PAYPAL_CLIENT_ID = os.environ.get("PAYPAL_CLIENT_ID", "")
+    PAYPAL_CLIENT_SECRET = os.environ.get("PAYPAL_CLIENT_SECRET", "")
+    PAYPAL_MODE = os.environ.get("PAYPAL_MODE", "sandbox")  # "sandbox" | "live"
+    # webhook ID que te da PayPal al registrar la URL /webhooks/paypal en
+    # developer.paypal.com -> tu app -> Webhooks (NO es lo mismo que el
+    # client secret; se usa solo para verificar la firma de cada evento).
+    PAYPAL_WEBHOOK_ID = os.environ.get("PAYPAL_WEBHOOK_ID", "")
 
-    # Un variant_id de Lemon Squeezy y una checkout_url por cada plan
-    LS_VARIANT_ID_MENSUAL = os.environ.get("LEMONSQUEEZY_VARIANT_ID_MENSUAL", "")
-    LS_VARIANT_ID_SEMESTRAL = os.environ.get("LEMONSQUEEZY_VARIANT_ID_SEMESTRAL", "")
-    LS_VARIANT_ID_ANUAL = os.environ.get("LEMONSQUEEZY_VARIANT_ID_ANUAL", "")
+    # Un Plan ID de PayPal ("P-...", creado una vez vía API o dashboard)
+    # y un checkout_url de respaldo por cada plan.
+    PAYPAL_PLAN_ID_MENSUAL = os.environ.get("PAYPAL_PLAN_ID_MENSUAL", "")
+    PAYPAL_PLAN_ID_SEMESTRAL = os.environ.get("PAYPAL_PLAN_ID_SEMESTRAL", "")
+    PAYPAL_PLAN_ID_ANUAL = os.environ.get("PAYPAL_PLAN_ID_ANUAL", "")
 
-    LS_CHECKOUT_URL_MENSUAL = os.environ.get("LEMONSQUEEZY_CHECKOUT_URL_MENSUAL", "#")
-    LS_CHECKOUT_URL_SEMESTRAL = os.environ.get("LEMONSQUEEZY_CHECKOUT_URL_SEMESTRAL", "#")
-    LS_CHECKOUT_URL_ANUAL = os.environ.get("LEMONSQUEEZY_CHECKOUT_URL_ANUAL", "#")
+    PAYPAL_CHECKOUT_URL_MENSUAL = os.environ.get("PAYPAL_CHECKOUT_URL_MENSUAL", "#")
+    PAYPAL_CHECKOUT_URL_SEMESTRAL = os.environ.get("PAYPAL_CHECKOUT_URL_SEMESTRAL", "#")
+    PAYPAL_CHECKOUT_URL_ANUAL = os.environ.get("PAYPAL_CHECKOUT_URL_ANUAL", "#")
 
     # Admin
     ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@example.com")

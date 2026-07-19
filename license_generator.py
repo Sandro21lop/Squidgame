@@ -12,8 +12,8 @@ de datos: la clave misma "sabe" de quién es. Ventajas prácticas para ti:
   - Si ves la misma clave activándose en streams de cuentas de TikTok
     distintas, es señal de reventa/compartir — puedes bloquearla desde el panel.
   - El formato es independiente de la pasarela de pago: hoy la generas a
-    mano desde el panel admin, mañana la genera sola un webhook de Lemon
-    Squeezy / Stripe / lo que sea, sin cambiar nada de esto.
+    mano desde el panel admin, mañana la genera sola el webhook de PayPal,
+    sin cambiar nada de esto.
 
 Formato de la clave: QGT-<PLAN>-XXXXX-XXXXX-XXXXX-XXXXX-XXXXX-XXXXX
   QGT   = Quid Game TikTok

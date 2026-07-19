@@ -6,21 +6,21 @@ from flask import Blueprint, render_template, redirect, current_app, request, \
 from extensions import db
 from models import License
 from license_generator import PLANES, normalizar_tiktok
-from lemonsqueezy_client import crear_checkout, get_subscription, LemonSqueezyError
+import paypal_client
 from content_pruebas import PRUEBAS
 
 public_bp = Blueprint("public", __name__)
 
 _CHECKOUT_URLS = {
-    "mensual": "LS_CHECKOUT_URL_MENSUAL",
-    "semestral": "LS_CHECKOUT_URL_SEMESTRAL",
-    "anual": "LS_CHECKOUT_URL_ANUAL",
+    "mensual": "PAYPAL_CHECKOUT_URL_MENSUAL",
+    "semestral": "PAYPAL_CHECKOUT_URL_SEMESTRAL",
+    "anual": "PAYPAL_CHECKOUT_URL_ANUAL",
 }
 
-_VARIANT_KEYS = {
-    "mensual": "LS_VARIANT_ID_MENSUAL",
-    "semestral": "LS_VARIANT_ID_SEMESTRAL",
-    "anual": "LS_VARIANT_ID_ANUAL",
+_PLAN_ID_KEYS = {
+    "mensual": "PAYPAL_PLAN_ID_MENSUAL",
+    "semestral": "PAYPAL_PLAN_ID_SEMESTRAL",
+    "anual": "PAYPAL_PLAN_ID_ANUAL",
 }
 
 
@@ -29,16 +29,14 @@ def _checkout_urls(app):
 
 
 def _pasarela_configurada(app):
-    """True cuando ya pusiste API key, store id y el variant id de los
-    planes que REALMENTE existen en PLANES (hoy solo "mensual"). Antes esto
-    exigía los 3 variant id (incluyendo semestral/anual, que no se usan
-    todavía), así que nunca se cumplía y /comprar caía siempre al link fijo
-    sin pedir el usuario de TikTok. Mientras falte algo, /comprar cae al
-    modo manual (link fijo o '#') para no romper la landing."""
+    """True cuando ya pusiste client id/secret de PayPal y el Plan ID de
+    los planes que REALMENTE existen en PLANES (hoy solo "mensual").
+    Mientras falte algo, /comprar cae al modo manual (link fijo o '#')
+    para no romper la landing."""
     return bool(
-        app.config["LS_API_KEY"]
-        and app.config["LS_STORE_ID"]
-        and all(app.config[_VARIANT_KEYS[plan]] for plan in PLANES)
+        app.config["PAYPAL_CLIENT_ID"]
+        and app.config["PAYPAL_CLIENT_SECRET"]
+        and all(app.config[_PLAN_ID_KEYS[plan]] for plan in PLANES)
     )
 
 
@@ -62,8 +60,8 @@ def comprar(plan="mensual"):
       variant ids en el .env), cae al link fijo de siempre (pago manual,
       WhatsApp, etc.) para no romper la landing mientras la conectas.
     - Si SÍ está configurada, pide el usuario de TikTok aquí mismo y crea
-      un checkout de Lemon Squeezy por API con ese usuario metido como
-      custom data. Así, cuando el webhook confirme el pago, ya sabe para
+      una suscripción de PayPal por API con ese usuario metido en
+      custom_id. Así, cuando el webhook confirme el pago, ya sabe para
       quién generar la licencia — sin que tengas que hacer nada a mano.
     """
     if plan not in PLANES:
@@ -78,17 +76,23 @@ def comprar(plan="mensual"):
         if not tiktok_username:
             error = "Escribe tu usuario de TikTok (el mismo con el que transmites)."
         else:
-            redirect_url = url_for("public.gracias", u=tiktok_username, _external=True)
+            return_url = url_for("public.gracias", u=tiktok_username, _external=True)
+            cancel_url = url_for("public.comprar", plan=plan, _external=True)
             try:
-                checkout_url = crear_checkout(
-                    api_key=current_app.config["LS_API_KEY"],
-                    store_id=current_app.config["LS_STORE_ID"],
-                    variant_id=current_app.config[_VARIANT_KEYS[plan]],
+                suscripcion = paypal_client.crear_suscripcion(
+                    client_id=current_app.config["PAYPAL_CLIENT_ID"],
+                    client_secret=current_app.config["PAYPAL_CLIENT_SECRET"],
+                    mode=current_app.config["PAYPAL_MODE"],
+                    plan_id=current_app.config[_PLAN_ID_KEYS[plan]],
                     tiktok_username=tiktok_username,
-                    redirect_url=redirect_url,
+                    return_url=return_url,
+                    cancel_url=cancel_url,
                 )
+                checkout_url = paypal_client.approval_url(suscripcion)
+                if not checkout_url:
+                    raise paypal_client.PayPalError("Sin link de aprobación en la respuesta")
                 return redirect(checkout_url)
-            except LemonSqueezyError:
+            except paypal_client.PayPalError:
                 error = "No pudimos iniciar el pago. Intenta de nuevo en un momento."
 
     return render_template(
@@ -102,7 +106,7 @@ def comprar(plan="mensual"):
 
 @public_bp.route("/gracias")
 def gracias():
-    """Página a la que Lemon Squeezy redirige justo después del pago.
+    """Página a la que PayPal redirige justo después del pago.
 
     El webhook (que llega por separado, casi siempre en 1-2 segundos) es
     quien realmente genera la licencia. Esta página busca por usuario de
@@ -113,7 +117,7 @@ def gracias():
     if tiktok_username:
         licencia = (
             License.query
-            .filter_by(tiktok_username=tiktok_username, origen="lemonsqueezy")
+            .filter_by(tiktok_username=tiktok_username, origen="paypal")
             .order_by(License.created_at.desc())
             .first()
         )
@@ -127,11 +131,15 @@ def gracias():
 
 @public_bp.route("/mi-cuenta", methods=["GET", "POST"])
 def mi_cuenta():
-    """El cliente pone su usuario de TikTok y lo mandamos al Customer Portal
-    de Lemon Squeezy — ahí puede ver su suscripción, cambiar tarjeta,
-    descargar facturas y cancelar él mismo. No armamos login propio: la
-    URL que da Lemon Squeezy ya viene firmada y logueada, válida 24h."""
+    """El cliente pone su usuario de TikTok y le mostramos el estado de su
+    suscripción de PayPal (consultado en vivo por API) con un botón para
+    cancelarla él mismo. A diferencia de Lemon Squeezy, PayPal no ofrece
+    una URL de "customer portal" firmada por API, así que armamos la
+    vista nosotros mismos; para cambiar de tarjeta/método de pago el
+    cliente debe hacerlo desde su cuenta de paypal.com."""
     error = None
+    suscripcion = None
+    tiktok_username = ""
     if request.method == "POST":
         tiktok_username = normalizar_tiktok(request.form.get("tiktok_username", ""))
         if not tiktok_username:
@@ -139,35 +147,72 @@ def mi_cuenta():
         else:
             lic = (
                 License.query
-                .filter_by(tiktok_username=tiktok_username, origen="lemonsqueezy")
+                .filter_by(tiktok_username=tiktok_username, origen="paypal")
                 .order_by(License.created_at.desc())
                 .first()
             )
             if not lic or not lic.subscription:
                 error = (
-                    "No encontramos una suscripción de Lemon Squeezy para ese usuario. "
+                    "No encontramos una suscripción de PayPal para ese usuario. "
                     "Si tu licencia se activó manualmente (pago directo), escríbenos "
                     "para renovar o cancelar."
                 )
             else:
                 try:
-                    datos = get_subscription(
-                        current_app.config["LS_API_KEY"],
-                        lic.subscription.ls_subscription_id,
+                    datos = paypal_client.get_subscription(
+                        current_app.config["PAYPAL_CLIENT_ID"],
+                        current_app.config["PAYPAL_CLIENT_SECRET"],
+                        current_app.config["PAYPAL_MODE"],
+                        lic.subscription.paypal_subscription_id,
                     )
-                    portal_url = datos["data"]["attributes"]["urls"]["customer_portal"]
-                    if not portal_url:
-                        error = "Tu suscripción no tiene un portal disponible en este momento. Escríbenos."
-                    else:
-                        return redirect(portal_url)
-                except (LemonSqueezyError, KeyError):
-                    error = "No pudimos abrir tu portal de cliente. Intenta de nuevo en un momento."
+                    suscripcion = {
+                        "id": lic.subscription.id,
+                        "status": datos.get("status"),
+                        "plan": lic.subscription.plan,
+                        "next_billing": (datos.get("billing_info") or {}).get("next_billing_time"),
+                    }
+                except paypal_client.PayPalError:
+                    error = "No pudimos consultar tu suscripción. Intenta de nuevo en un momento."
 
     return render_template(
         "mi_cuenta.html",
         game_name=current_app.config["GAME_NAME"],
         error=error,
+        suscripcion=suscripcion,
+        tiktok_username=tiktok_username,
     )
+
+
+@public_bp.route("/mi-cuenta/cancelar/<int:subscription_id>", methods=["POST"])
+def mi_cuenta_cancelar(subscription_id):
+    """Cancelación self-service: el cliente debe volver a escribir su
+    usuario de TikTok como confirmación (evita que alguien cancele la
+    suscripción de otro solo por adivinar el subscription_id)."""
+    from models import Subscription
+
+    tiktok_username = normalizar_tiktok(request.form.get("tiktok_username", ""))
+    sub = Subscription.query.get_or_404(subscription_id)
+    lic = sub.licenses.first()
+
+    if not tiktok_username or not lic or lic.tiktok_username != tiktok_username:
+        flash("No pudimos confirmar tu usuario de TikTok. Intenta de nuevo.", "danger")
+        return redirect(url_for("public.mi_cuenta"))
+
+    try:
+        paypal_client.cancel_subscription(
+            current_app.config["PAYPAL_CLIENT_ID"],
+            current_app.config["PAYPAL_CLIENT_SECRET"],
+            current_app.config["PAYPAL_MODE"],
+            sub.paypal_subscription_id,
+            reason="Cancelada por el cliente desde /mi-cuenta",
+        )
+        sub.status = "cancelled"
+        db.session.commit()
+        flash("Tu suscripción fue cancelada. Seguirá activa hasta el fin del ciclo ya pagado.", "success")
+    except paypal_client.PayPalError:
+        flash("No pudimos cancelar tu suscripción. Intenta de nuevo o escríbenos.", "danger")
+
+    return redirect(url_for("public.mi_cuenta"))
 
 
 @public_bp.route("/descargar", methods=["GET", "POST"])

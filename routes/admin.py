@@ -5,7 +5,7 @@ from flask_login import login_user, logout_user, login_required, current_user
 
 from extensions import db
 from models import AdminUser, Customer, Subscription, License
-from lemonsqueezy_client import cancel_subscription, LemonSqueezyError
+import paypal_client
 from license_generator import PLANES, generar_licencia, decodificar_licencia, normalizar_tiktok
 import emailer
 
@@ -190,10 +190,16 @@ def renovar_licencia(license_id):
 def cancelar_suscripcion(subscription_id):
     sub = Subscription.query.get_or_404(subscription_id)
     try:
-        cancel_subscription(current_app.config["LS_API_KEY"], sub.ls_subscription_id)
+        paypal_client.cancel_subscription(
+            current_app.config["PAYPAL_CLIENT_ID"],
+            current_app.config["PAYPAL_CLIENT_SECRET"],
+            current_app.config["PAYPAL_MODE"],
+            sub.paypal_subscription_id,
+            reason="Cancelada por el administrador",
+        )
         sub.status = "cancelled"
         db.session.commit()
-        flash("Suscripción cancelada en Lemon Squeezy.", "success")
-    except LemonSqueezyError as e:
+        flash("Suscripción cancelada en PayPal.", "success")
+    except paypal_client.PayPalError as e:
         flash(f"No se pudo cancelar: {e}", "danger")
     return redirect(url_for("admin.dashboard"))

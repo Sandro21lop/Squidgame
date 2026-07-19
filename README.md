@@ -32,7 +32,7 @@ facilite la piratería.
     activado, renovar manualmente.
 - **API para el juego** (`/api/activate`, `/api/validate`) — el juego llama
   esto para activarse la primera vez y validarse en cada arranque. Valida
-  contra tu propia tabla de licencias (ya no contra Lemon Squeezy).
+  contra tu propia tabla de licencias (nunca contra la pasarela de pago).
 - **Actualizaciones del juego** (`/api/version`, `/api/download`) — el juego
   consulta `/api/version` en cada arranque (sin necesitar la clave) para ver
   si hay una versión más nueva; si la hay, usa la clave que ya tiene guardada
@@ -41,12 +41,12 @@ facilite la piratería.
 - **Descarga protegida** (`/descargar`) — solo entrega el instalador si la
   licencia está vigente y no bloqueada (versión web, con formulario).
 - **Correo automático** (`emailer.py`) — cada vez que se emite una licencia
-  nueva (pago por Lemon Squeezy o generada a mano con correo en el panel),
+  nueva (pago por PayPal o generada a mano con correo en el panel),
   se envía por SMTP al comprador. También se avisa por correo cuando se
   renueva un ciclo o se cancela una suscripción. Ver sección 6.
-- **Lemon Squeezy** (opcional, para después) — el webhook (`/webhooks/lemonsqueezy`)
-  y el cliente (`lemonsqueezy_client.py`) quedan listos para cuando decidas
-  automatizar el cobro. Ver sección 4.
+- **PayPal** — pasarela de pago activa. El webhook (`/webhooks/paypal`)
+  y el cliente (`paypal_client.py`) emiten y renuevan licencias
+  automáticamente en cuanto conectes tus credenciales. Ver sección 4.
 
 ---
 
@@ -82,29 +82,41 @@ panel — extiende la fecha de vencimiento sin generar una clave nueva.
 
 ---
 
-## 4. Conectar Lemon Squeezy más adelante (opcional)
+## 4. Conectar PayPal (pasarela de pago activa)
 
-El proyecto queda preparado para automatizar el cobro cuando quieras:
+El proyecto usa **PayPal Subscriptions** para el cobro recurrente. Pasos:
 
-1. Crea una cuenta en https://lemonsqueezy.com y tu **Store**.
-2. Crea **3 variantes** (una por plan) de tipo Subscription: $5/mes, $25/6
-   meses, $50/año. Copia sus checkout URLs a `.env`:
-   `LEMONSQUEEZY_CHECKOUT_URL_MENSUAL` / `_SEMESTRAL` / `_ANUAL`.
-3. En el checkout de cada variante, agrega un **campo personalizado** para
-   pedir el usuario de TikTok (Lemon Squeezy lo soporta en "Checkout > Custom
-   fields"), y define **Redirect URL** a `https://tudominio.com/gracias`.
-4. Ve a **Settings → API**, genera un API key → `LEMONSQUEEZY_API_KEY`.
-5. Ve a **Settings → Webhooks**, crea uno apuntando a
-   `https://tudominio.com/webhooks/lemonsqueezy`, marca los eventos de
-   suscripción, e inventa un signing secret → `LEMONSQUEEZY_WEBHOOK_SECRET`.
-6. Esto ya está conectado en `routes/webhooks.py`
-   (`_emitir_licencia_si_falta`): al recibir `subscription_created` o
-   `subscription_payment_success`, toma el usuario de TikTok del custom
-   field, llama a `license_generator.generar_licencia(...)`, guarda la
-   licencia con `origen="lemonsqueezy"` y **manda el correo automáticamente**
-   con la clave al comprador. Así todas las licencias —manuales o pagadas—
-   quedan en el mismo formato y las maneja el mismo panel. No necesitas
-   tocar nada de código, solo llenar el `.env`.
+1. Crea una app REST en https://developer.paypal.com/dashboard/applications
+   (modo *Sandbox* para probar, *Live* cuando cobres de verdad). Copia
+   **Client ID** y **Secret** a `.env`: `PAYPAL_CLIENT_ID` / `PAYPAL_CLIENT_SECRET`,
+   y pon `PAYPAL_MODE=sandbox` o `PAYPAL_MODE=live`.
+2. Crea un **Producto** y luego un **Plan** de facturación por cada plan que
+   vendas (mensual $5, semestral $25, anual $50) — puedes hacerlo desde el
+   dashboard de PayPal (Billing Plans) o con la API `/v1/catalogs/products`
+   + `/v1/billing/plans`. Copia cada Plan ID (`P-XXXXXXXX...`) a `.env`:
+   `PAYPAL_PLAN_ID_MENSUAL` / `_SEMESTRAL` / `_ANUAL`.
+3. Ve a **Webhooks** en tu app de PayPal, crea uno apuntando a
+   `https://tudominio.com/webhooks/paypal` y suscríbelo (mínimo) a:
+   `BILLING.SUBSCRIPTION.ACTIVATED`, `BILLING.SUBSCRIPTION.CANCELLED`,
+   `BILLING.SUBSCRIPTION.EXPIRED`, `BILLING.SUBSCRIPTION.SUSPENDED`,
+   `PAYMENT.SALE.COMPLETED`. Copia el **Webhook ID** a `.env`:
+   `PAYPAL_WEBHOOK_ID`.
+4. Esto ya está conectado: `/comprar` pide el usuario de TikTok y crea la
+   suscripción vía `paypal_client.crear_suscripcion(...)` con ese usuario
+   metido en `custom_id`; el comprador aprueba el pago en PayPal y vuelve a
+   `/gracias`. El webhook (`routes/webhooks.py` →
+   `_emitir_o_renovar_licencia_paypal`) recibe `BILLING.SUBSCRIPTION.ACTIVATED`
+   (primer pago) o `PAYMENT.SALE.COMPLETED` (renovaciones), emite/renueva la
+   licencia con `origen="paypal"` y **manda el correo automáticamente**. No
+   necesitas tocar código, solo llenar el `.env`.
+5. El cliente puede ver el estado de su suscripción y cancelarla él mismo
+   en `/mi-cuenta` (a diferencia de Lemon Squeezy, PayPal no da una URL de
+   portal firmada, así que esa vista la arma el propio backend). Para
+   cambiar de tarjeta, el cliente lo hace desde su cuenta de paypal.com.
+6. **Licencias/suscripciones históricas**: no aplica — el proyecto no tenía
+   base de datos en uso, así que no hay nada de Lemon Squeezy que migrar.
+   Todo lo que se genere de aquí en adelante (pagado o manual) queda
+   directamente en el esquema de PayPal.
 
 ---
 
@@ -133,11 +145,11 @@ de tu propio dominio/hosting.
 **Cuándo se envía correo automáticamente:**
 
 - **Licencia nueva** — al confirmarse el primer pago de una suscripción
-  (Lemon Squeezy), o al generarla a mano desde `/admin/licencias/generar`
+  (PayPal), o al generarla a mano desde `/admin/licencias/generar`
   si le pones un correo en el formulario.
-- **Renovación** — cuando el ciclo se cobra de nuevo (`subscription_payment_success`
+- **Renovación** — cuando el ciclo se cobra de nuevo (`PAYMENT.SALE.COMPLETED`
   en una suscripción que ya tenía licencia). **No se genera una clave
-  nueva**: la validez de una licencia con `origen="lemonsqueezy"` depende
+  nueva**: la validez de una licencia con `origen="paypal"` depende
   del estado en vivo de la suscripción (`is_effectively_active`), no de una
   fecha fija dentro de la clave — así que la misma clave sigue funcionando
   sola, sin que el jugador tenga que hacer nada. El correo es solo un aviso
@@ -203,10 +215,10 @@ para varios planes, solo lo dejamos reducido a uno por ahora.
 - Sube tu instalador más reciente a `downloads/` y actualiza
   `DOWNLOAD_LATEST_PATH` / `DOWNLOAD_LATEST_VERSION` en `.env`.
 - Cambia `ADMIN_PASSWORD` a algo fuerte antes de exponerlo a internet.
-- ⚠️ **Rota tu `LEMONSQUEEZY_API_KEY`** antes de subir este proyecto a
-  cualquier repo o de compartirlo con alguien: el `.env` que traías tenía
-  una key real dentro del zip que me compartiste. Genera una nueva desde
-  Lemon Squeezy → Settings → API y revoca la vieja.
+- Nunca subas tu `.env` (con `PAYPAL_CLIENT_SECRET`, `PAYPAL_WEBHOOK_ID`,
+  etc.) a un repositorio público — este proyecto no trae ningún `.env` con
+  claves reales, solo `config.py` leyendo variables de entorno vacías por
+  defecto.
 
 ---
 
