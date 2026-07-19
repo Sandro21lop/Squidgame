@@ -92,7 +92,8 @@ def comprar(plan="mensual"):
                 if not checkout_url:
                     raise paypal_client.PayPalError("Sin link de aprobación en la respuesta")
                 return redirect(checkout_url)
-            except paypal_client.PayPalError:
+            except paypal_client.PayPalError as e:
+                print(f"[comprar] Error PayPal: {e}")
                 error = "No pudimos iniciar el pago. Intenta de nuevo en un momento."
 
     return render_template(
