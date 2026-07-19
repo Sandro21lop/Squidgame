@@ -39,8 +39,11 @@
     <thead>
       <tr>
         <th>Usuario TikTok</th>
+        <th>Clave de licencia</th>
         <th>Plan</th>
         <th>Origen</th>
+        <th>Correo</th>
+        <th>Creado</th>
         <th>Vence</th>
         <th>Estado</th>
         <th>Equipo activado</th>
@@ -52,8 +55,17 @@
         {% set vigente = lic.esta_vigente(dias_gracia) %}
         <tr>
           <td>{{ '@' + lic.tiktok_username if lic.tiktok_username else '—' }}</td>
+          <td>
+            <div class="clave-cell">
+              <span class="clave-texto oculta" id="clave-{{ lic.id }}">{{ lic.license_key }}</span>
+              <button type="button" class="icon-btn" onclick="toggleClave({{ lic.id }})" title="Mostrar/ocultar clave">👁</button>
+              <button type="button" class="icon-btn" onclick="copiarClave({{ lic.id }}, this)" title="Copiar clave">⧉</button>
+            </div>
+          </td>
           <td>{{ planes[lic.plan].nombre if lic.plan in planes else lic.plan }}</td>
-          <td>{{ lic.origen }}</td>
+          <td><span class="origen-tag {{ 'paypal' if lic.origen == 'paypal' else '' }}">{{ lic.origen }}</span></td>
+          <td class="correo-cell">{{ lic.email or '—' }}</td>
+          <td class="creado-cell">{{ lic.created_at.strftime('%Y-%m-%d') if lic.created_at else '—' }}</td>
           <td>{{ lic.expira_at.strftime('%Y-%m-%d') if lic.expira_at else '—' }}</td>
           <td>
             <span class="badge {{ 'active' if vigente and not lic.bloqueada_manualmente else ('cancelled' if lic.bloqueada_manualmente else 'expired') }}">
@@ -90,7 +102,7 @@
         </tr>
       {% else %}
         <tr>
-          <td colspan="7" style="color:var(--text-dim); text-align:center; padding:30px 0;">
+          <td colspan="10" style="color:var(--text-dim); text-align:center; padding:30px 0;">
             Todavía no has generado ninguna licencia.
             <a href="{{ url_for('admin.generar') }}" style="color:var(--rosa);">Genera la primera aquí.</a>
           </td>
@@ -99,4 +111,23 @@
     </tbody>
   </table>
 </div>
+
+<script>
+function toggleClave(id) {
+  const el = document.getElementById('clave-' + id);
+  el.classList.toggle('oculta');
+}
+
+function copiarClave(id, btn) {
+  const el = document.getElementById('clave-' + id);
+  const texto = el.textContent.trim();
+  navigator.clipboard.writeText(texto).then(function () {
+    const original = btn.textContent;
+    btn.textContent = '✓';
+    setTimeout(function () { btn.textContent = original; }, 1200);
+  }).catch(function () {
+    alert('No se pudo copiar automáticamente. Clave: ' + texto);
+  });
+}
+</script>
 {% endblock %}
