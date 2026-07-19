@@ -120,6 +120,30 @@ def enviar_licencia_renovada(config, destinatario: str, tiktok_username: str,
     return enviar_email(config, destinatario, f"Renovación confirmada — {config.get('GAME_NAME')}", html)
 
 
+def enviar_licencia_reactivada(config, destinatario: str, tiktok_username: str, license_key: str,
+                                plan_nombre: str, renueva_el) -> bool:
+    fecha = renueva_el.strftime('%Y-%m-%d') if renueva_el else "—"
+    base_url = config.get("PUBLIC_BASE_URL", "")
+    cuerpo = f"""
+      <p>¡Tu pago se procesó correctamente! Reactivamos la suscripción de <b>@{tiktok_username}</b>
+         y te devolvemos <b>la misma clave de licencia</b> que ya tenías — no necesitas
+         activar el juego de nuevo si lo tenías instalado en el mismo equipo.</p>
+      <p style="margin:18px 0; padding:14px 16px; background:#0f0f14; border-radius:10px;
+                font-family:monospace; font-size:15px; word-break:break-all; border:1px solid #2a2a35;">
+        {license_key}
+      </p>
+      <p><b>Plan:</b> {plan_nombre}<br><b>Próxima renovación:</b> {fecha}</p>
+      <p><a href="{base_url}/descargar" style="color:#ff2d55;">Descargar el instalador</a></p>
+    """
+    html = _plantilla_base(config, "Tu licencia fue reactivada", cuerpo)
+    texto = (
+        f"Tu clave de licencia (la misma de antes): {license_key}\n"
+        f"Plan: {plan_nombre}\nPróxima renovación: {fecha}\n"
+        f"Descarga: {base_url}/descargar"
+    )
+    return enviar_email(config, destinatario, f"Tu licencia fue reactivada — {config.get('GAME_NAME')}", html, texto)
+
+
 def enviar_licencia_cancelada(config, destinatario: str, tiktok_username: str, sigue_hasta) -> bool:
     fecha = sigue_hasta.strftime('%Y-%m-%d') if sigue_hasta else "el final de tu período pagado"
     cuerpo = f"""

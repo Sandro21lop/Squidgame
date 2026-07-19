@@ -13,8 +13,17 @@
     <form method="POST">
       <div class="field">
         <label>Usuario de TikTok</label>
-        <input type="text" name="tiktok_username" placeholder="@tuusuario" required autofocus>
+        <input type="text" name="tiktok_username" placeholder="@tuusuario" required autofocus
+               value="{{ tiktok_username or '' }}">
       </div>
+      <div class="field">
+        <label>Correo electrónico</label>
+        <input type="email" name="email" placeholder="tucorreo@ejemplo.com" required
+               value="{{ email or '' }}">
+      </div>
+      <p class="sub" style="margin:6px 0 0; font-size:12px;">
+        Tu clave de licencia y los avisos de renovación llegan a este correo — escríbelo bien.
+      </p>
       <button class="btn-block" type="submit">Continuar al pago</button>
     </form>
 

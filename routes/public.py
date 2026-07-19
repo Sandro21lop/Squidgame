@@ -71,10 +71,16 @@ def comprar(plan="mensual"):
         return redirect(_checkout_urls(current_app)[plan])
 
     error = None
+    tiktok_username = ""
+    email = ""
     if request.method == "POST":
         tiktok_username = normalizar_tiktok(request.form.get("tiktok_username", ""))
+        email = (request.form.get("email", "") or "").strip().lower()
+
         if not tiktok_username:
             error = "Escribe tu usuario de TikTok (el mismo con el que transmites)."
+        elif not email or "@" not in email or "." not in email.split("@")[-1]:
+            error = "Escribe un correo electrónico válido: ahí te llega la clave de licencia."
         else:
             return_url = url_for("public.gracias", u=tiktok_username, _external=True)
             cancel_url = url_for("public.comprar", plan=plan, _external=True)
@@ -87,6 +93,7 @@ def comprar(plan="mensual"):
                     tiktok_username=tiktok_username,
                     return_url=return_url,
                     cancel_url=cancel_url,
+                    email=email,
                 )
                 checkout_url = paypal_client.approval_url(suscripcion)
                 if not checkout_url:
@@ -102,6 +109,8 @@ def comprar(plan="mensual"):
         plan=plan,
         info=PLANES[plan],
         error=error,
+        tiktok_username=tiktok_username,
+        email=email,
     )
 
 
@@ -235,7 +244,11 @@ def descargar():
             elif lic.esta_bloqueada():
                 error = "Esta licencia fue suspendida. Contáctanos si crees que es un error."
             elif not lic.esta_vigente(current_app.config["DIAS_GRACIA"]):
-                error = "Tu licencia está vencida. Renueva tu plan para seguir descargando."
+                error = (
+                    "Tu licencia está vencida. Si tienes el pago automático activado, se "
+                    "reactivará sola con el próximo cobro; si no, vuelve a suscribirte y "
+                    "se restablecerá esta misma clave."
+                )
             else:
                 path = current_app.config["DOWNLOAD_LATEST_PATH"]
                 if not os.path.exists(path):

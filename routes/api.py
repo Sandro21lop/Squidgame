@@ -25,6 +25,22 @@ from models import License
 
 api_bp = Blueprint("api", __name__, url_prefix="/api")
 
+# Mensaje que ve el jugador en el juego cuando su licencia ya no está
+# vigente (mensualidad vencida fuera del período de gracia). Explica las
+# dos rutas posibles para que no piense que perdió su clave:
+#   - Si tiene pago automático (PayPal) activo, en cuanto se procese el
+#     próximo cobro la licencia se reactiva sola (webhook) y le llega un
+#     correo — no tiene que hacer nada.
+#   - Si canceló o el cobro no pasó, al volver a suscribirse en la página
+#     del juego se restablece esta MISMA clave (no una nueva).
+MSG_LICENCIA_VENCIDA = (
+    "Se terminó tu mensualidad. Si tienes el pago automático activado, en cuanto "
+    "PayPal procese el próximo cobro tu licencia se reactivará sola y te llegará "
+    "un correo confirmándolo. Si cancelaste o el cobro no se pudo procesar, entra "
+    "a la página del juego y vuelve a suscribirte: se restablecerá esta misma "
+    "clave de licencia, no una nueva."
+)
+
 
 @api_bp.route("/version", methods=["GET"])
 def version():
@@ -55,7 +71,7 @@ def download():
     if lic.esta_bloqueada():
         return jsonify(ok=False, mensaje="Esta licencia fue suspendida."), 403
     if not lic.esta_vigente(current_app.config["DIAS_GRACIA"]):
-        return jsonify(ok=False, mensaje="Tu licencia está vencida."), 402
+        return jsonify(ok=False, mensaje=MSG_LICENCIA_VENCIDA), 402
 
     path = current_app.config["DOWNLOAD_LATEST_PATH"]
     if not os.path.exists(path):
@@ -84,10 +100,7 @@ def activate():
         ), 403
 
     if not lic.esta_vigente(current_app.config["DIAS_GRACIA"]):
-        return jsonify(
-            ok=False,
-            mensaje="Tu licencia está vencida. Renueva tu plan para seguir jugando.",
-        ), 402
+        return jsonify(ok=False, mensaje=MSG_LICENCIA_VENCIDA), 402
 
     # "una clave, un equipo": si ya está activada en otro equipo, se rechaza
     if lic.instance_id and lic.instance_id != instance_name:
@@ -135,10 +148,7 @@ def validate():
         ), 409
 
     if not lic.esta_vigente(current_app.config["DIAS_GRACIA"]):
-        return jsonify(
-            ok=False,
-            mensaje="Tu suscripción no está activa. Renueva en la página del juego.",
-        ), 402
+        return jsonify(ok=False, mensaje=MSG_LICENCIA_VENCIDA), 402
 
     lic.last_validated_at = datetime.utcnow()
     db.session.commit()

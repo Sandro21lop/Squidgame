@@ -106,6 +106,30 @@ def _emitir_o_renovar_licencia_paypal(sub, resource, event_name, config):
         if not tiktok_username:
             return None, None
 
+        # ¿Este usuario de TikTok ya tuvo una licencia antes (de una
+        # suscripción anterior, cancelada o vencida)? Si volvió a pagar,
+        # le devolvemos la MISMA clave en vez de generar una nueva: así no
+        # pierde el equipo ya vinculado (instance_id) ni tiene que volver
+        # a "activarla" en el juego con una clave distinta.
+        lic_anterior = (
+            License.query
+            .filter_by(tiktok_username=tiktok_username, origen="paypal")
+            .filter(License.subscription_id != sub.id)
+            .order_by(License.created_at.desc())
+            .first()
+        )
+
+        if lic_anterior is not None and not lic_anterior.bloqueada_manualmente:
+            lic_anterior.subscription_id = sub.id
+            lic_anterior.plan = sub.plan
+            lic_anterior.email = (sub.customer.email if sub.customer else lic_anterior.email)
+            plan_nombre = PLANES.get(sub.plan, {}).get("nombre", sub.plan)
+            return "reactivada", dict(
+                destinatario=(sub.customer.email if sub.customer else lic_anterior.email),
+                tiktok_username=tiktok_username, license_key=lic_anterior.license_key,
+                plan_nombre=plan_nombre, renueva_el=sub.renews_at,
+            )
+
         clave, expira = generar_licencia(tiktok_username, sub.plan, config["SECRET_KEY"])
         lic = License(
             license_key=clave,
@@ -224,6 +248,8 @@ def paypal_webhook():
                 emailer.enviar_licencia_nueva(current_app.config, **kwargs)
             elif tipo == "renovada":
                 emailer.enviar_licencia_renovada(current_app.config, **kwargs)
+            elif tipo == "reactivada":
+                emailer.enviar_licencia_reactivada(current_app.config, **kwargs)
             elif tipo == "cancelada":
                 emailer.enviar_licencia_cancelada(current_app.config, **kwargs)
         except Exception as e:
