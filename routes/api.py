@@ -158,3 +158,40 @@ def validate():
     lic.last_validated_at = datetime.utcnow()
     db.session.commit()
     return jsonify(ok=True, mensaje="Licencia válida.", tiktok_username=lic.tiktok_username)
+
+
+@api_bp.route("/deactivate", methods=["POST"])
+def deactivate():
+    """Llamado por el juego cuando el jugador toca 'Eliminar licencia'.
+    Libera el equipo activado en esta clave para que se pueda volver a
+    activar en otra PC, sin que el jugador tenga que escribirte para que
+    lo hagas vos a mano desde el panel admin (aunque esa opción sigue
+    disponible ahí: botón "resetear equipo" en el dashboard)."""
+    data = request.get_json(silent=True) or {}
+    license_key = (data.get("license_key") or "").strip().upper()
+    instance_id = data.get("instance_id")
+
+    if not license_key:
+        return jsonify(ok=False, mensaje="Falta la clave de licencia."), 400
+
+    lic = License.query.filter_by(license_key=license_key).first()
+    if not lic:
+        return jsonify(ok=False, mensaje="Clave de licencia no encontrada."), 404
+
+    # Si el juego manda un instance_id y no coincide con el que está
+    # activado en el servidor, no liberamos: evita que alguien que solo
+    # conoce la clave (pero no la activó en su equipo) le desactive el
+    # equipo a otra persona. Si no llega instance_id (por ejemplo, se
+    # perdió el archivo local), liberamos igual — la clave en sí ya es
+    # el secreto que autoriza esto, igual que en /activate y /validate.
+    if instance_id and lic.instance_id and instance_id != lic.instance_id:
+        return jsonify(
+            ok=False,
+            mensaje="Esta licencia está activa en un equipo distinto al que pidió liberarla.",
+        ), 409
+
+    lic.instance_id = None
+    lic.activation_usage = 0
+    db.session.commit()
+
+    return jsonify(ok=True, mensaje="Licencia liberada. Ya se puede activar en otro equipo.")
