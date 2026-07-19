@@ -119,6 +119,7 @@ def activate():
         ok=True,
         mensaje="Licencia activada correctamente.",
         instance_id=instance_name,
+        tiktok_username=lic.tiktok_username,
     )
 
 
@@ -152,4 +153,4 @@ def validate():
 
     lic.last_validated_at = datetime.utcnow()
     db.session.commit()
-    return jsonify(ok=True, mensaje="Licencia válida.")
+    return jsonify(ok=True, mensaje="Licencia válida.", tiktok_username=lic.tiktok_username)
