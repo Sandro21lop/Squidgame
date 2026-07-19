@@ -250,6 +250,10 @@ def descargar():
                     "se restablecerá esta misma clave."
                 )
             else:
+                url_externa = current_app.config["DOWNLOAD_LATEST_URL"]
+                if url_externa:
+                    return redirect(url_externa)
+
                 path = current_app.config["DOWNLOAD_LATEST_PATH"]
                 if not os.path.exists(path):
                     error = "El instalador no está disponible en este momento, contáctanos."

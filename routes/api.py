@@ -73,6 +73,10 @@ def download():
     if not lic.esta_vigente(current_app.config["DIAS_GRACIA"]):
         return jsonify(ok=False, mensaje=MSG_LICENCIA_VENCIDA), 402
 
+    url_externa = current_app.config["DOWNLOAD_LATEST_URL"]
+    if url_externa:
+        return jsonify(ok=True, mensaje="Descarga disponible.", download_url=url_externa)
+
     path = current_app.config["DOWNLOAD_LATEST_PATH"]
     if not os.path.exists(path):
         return jsonify(ok=False, mensaje="El instalador no está disponible en este momento."), 503

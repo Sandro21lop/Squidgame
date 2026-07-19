@@ -51,6 +51,13 @@ class Config:
 
     # Descargas / versión del instalador (el juego consulta esto en
     # /api/version para saber si hay una actualización disponible)
+    #
+    # DOWNLOAD_LATEST_URL: si la defines, el instalador se sirve desde ahí
+    # (ej. la URL directa del asset .exe de un GitHub Release) en vez de
+    # buscar un archivo local — así el binario pesado no vive en el repo.
+    # Si la dejas vacía, se usa DOWNLOAD_LATEST_PATH como antes (archivo
+    # local junto al código).
+    DOWNLOAD_LATEST_URL = os.environ.get("DOWNLOAD_LATEST_URL", "")
     DOWNLOAD_LATEST_PATH = os.environ.get(
         "DOWNLOAD_LATEST_PATH", "downloads/QuidGameTikTok-Setup-latest.exe"
     )
