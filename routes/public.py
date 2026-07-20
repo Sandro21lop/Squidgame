@@ -7,6 +7,8 @@ from extensions import db
 from models import License
 from license_generator import PLANES, normalizar_tiktok
 import paypal_client
+import licensing
+import emailer
 from content_pruebas import PRUEBAS
 
 public_bp = Blueprint("public", __name__)
@@ -118,11 +120,19 @@ def comprar(plan="mensual"):
 def gracias():
     """Página a la que PayPal redirige justo después del pago.
 
-    El webhook (que llega por separado, casi siempre en 1-2 segundos) es
-    quien realmente genera la licencia. Esta página busca por usuario de
-    TikTok (?u=...) y, si ya está lista, la muestra; si no, se refresca
-    sola un par de veces por si el webhook todavía no llegó."""
+    Antes esta página solo esperaba pasivamente a que el webhook (async)
+    generara la licencia, refrescándose sola. Si el webhook fallaba o
+    tardaba (URL mal configurada, caída momentánea, reintento lento...)
+    el comprador se quedaba viendo "Confirmando tu pago..." sin fin.
+
+    Ahora, si todavía no hay licencia, esta página consulta la suscripción
+    DIRECTO contra la API de PayPal usando el `subscription_id` que PayPal
+    agrega solo al volver del checkout (query param `subscription_id`) y,
+    si ya está activa, emite la licencia y manda el correo en el momento
+    -- sin depender del webhook para esta primera emisión."""
     tiktok_username = normalizar_tiktok(request.args.get("u", ""))
+    paypal_subscription_id = request.args.get("subscription_id", "")
+
     licencia = None
     if tiktok_username:
         licencia = (
@@ -131,12 +141,64 @@ def gracias():
             .order_by(License.created_at.desc())
             .first()
         )
+
+    if licencia is None and paypal_subscription_id:
+        licencia = _emitir_licencia_de_respaldo(paypal_subscription_id)
+
     return render_template(
         "gracias.html",
         game_name=current_app.config["GAME_NAME"],
         licencia=licencia,
         tiktok_username=tiktok_username,
     )
+
+
+def _emitir_licencia_de_respaldo(paypal_subscription_id):
+    """Respaldo síncrono: le pregunta a PayPal por esta suscripción y, si
+    ya está activa, emite (o recupera) la licencia ahí mismo. Devuelve la
+    License si logra emitirla/encontrarla, o None si todavía no está lista
+    (para que la página siga refrescándose sola como antes)."""
+    config = current_app.config
+    try:
+        datos = paypal_client.get_subscription(
+            config["PAYPAL_CLIENT_ID"], config["PAYPAL_CLIENT_SECRET"],
+            config["PAYPAL_MODE"], paypal_subscription_id,
+        )
+    except paypal_client.PayPalError as e:
+        print(f"[gracias] No se pudo consultar suscripción {paypal_subscription_id}: {e}")
+        return None
+
+    if datos.get("status") != "ACTIVE":
+        return None  # todavía aprobando/procesando el primer cobro
+
+    sub = licensing.upsert_subscription_paypal(datos, "BILLING.SUBSCRIPTION.ACTIVATED", config)
+    if sub is None:
+        return None
+    db.session.flush()
+
+    try:
+        tipo, kwargs = licensing.emitir_o_renovar_licencia_paypal(
+            sub, datos, "BILLING.SUBSCRIPTION.ACTIVATED", config,
+        )
+    except Exception as e:
+        db.session.rollback()
+        print(f"[gracias] No se pudo emitir licencia de respaldo para sub {sub.id}: {e}")
+        return None
+
+    db.session.commit()
+
+    if tipo:
+        try:
+            if tipo == "nueva":
+                emailer.enviar_licencia_nueva(config, **kwargs)
+            elif tipo == "reactivada":
+                emailer.enviar_licencia_reactivada(config, **kwargs)
+            elif tipo == "renovada":
+                emailer.enviar_licencia_renovada(config, **kwargs)
+        except Exception as e:
+            print(f"[gracias] No se pudo enviar el correo '{tipo}': {e}")
+
+    return sub.licenses.first()
 
 
 @public_bp.route("/mi-cuenta", methods=["GET", "POST"])
