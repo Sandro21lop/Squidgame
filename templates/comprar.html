@@ -3,17 +3,37 @@
 <div class="auth-page">
   <div class="auth-card">
     <h1>Plan {{ info.nombre }}</h1>
+
+    {% if precio_info.en_oferta %}
+      <p class="sub" style="margin-bottom:2px;">
+        <span style="text-decoration:line-through; color:var(--text-dim);">${{ '%.2f'|format(precio_info.precio_normal) }}</span>
+        <b style="color:var(--rosa); font-size:16px;">${{ '%.2f'|format(precio_info.precio_actual) }}</b>
+        / {{ info.nombre|lower }}
+      </p>
+      <p class="sub" style="margin:0 0 10px; font-size:12px; color:var(--rosa);">
+        ⚡ Oferta por tiempo limitado — vuelve a ${{ '%.2f'|format(precio_info.precio_normal) }} el {{ precio_info.fin_oferta.strftime('%d/%m') }}.
+      </p>
+    {% else %}
+      <p class="sub" style="margin-bottom:10px;">
+        ${{ '%.2f'|format(precio_info.precio_actual) }} / {{ info.nombre|lower }}
+      </p>
+    {% endif %}
+
     <p class="sub">
-      ${{ info.precio }} / {{ info.nombre|lower }} · tu clave queda ligada a este usuario de TikTok,
-      así que escríbelo bien — es el mismo que usas para transmitir.
+      Tu clave queda ligada a este usuario de TikTok, así que escríbelo bien — es el mismo que usas para transmitir.
     </p>
 
     {% if error %}<div class="error-msg">{{ error }}</div>{% endif %}
 
     <form method="POST">
       <div class="field">
+        <label>Nombre</label>
+        <input type="text" name="nombre" placeholder="Tu nombre" required autofocus
+               value="{{ nombre or '' }}">
+      </div>
+      <div class="field">
         <label>Usuario de TikTok</label>
-        <input type="text" name="tiktok_username" placeholder="@tuusuario" required autofocus
+        <input type="text" name="tiktok_username" placeholder="@tuusuario" required
                value="{{ tiktok_username or '' }}">
       </div>
       <div class="field">

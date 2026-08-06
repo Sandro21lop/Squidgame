@@ -4,7 +4,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from flask_login import login_user, logout_user, login_required, current_user
 
 from extensions import db
-from models import AdminUser, Customer, Subscription, License
+from models import AdminUser, Customer, Subscription, License, IntentoCompra
 import paypal_client
 from license_generator import PLANES, generar_licencia, decodificar_licencia, normalizar_tiktok
 import emailer
@@ -64,6 +64,11 @@ def dashboard():
             dias = PLANES[l.plan]["dias"]
             mrr += (precios[l.plan] / dias) * 30
 
+    intentos = IntentoCompra.query.order_by(IntentoCompra.created_at.desc()).limit(100).all()
+    total_intentos = IntentoCompra.query.count()
+    total_intentos_completados = IntentoCompra.query.filter_by(completado=True).count()
+    tasa_conversion = round(100 * total_intentos_completados / total_intentos) if total_intentos else 0
+
     return render_template(
         "admin/dashboard.html",
         licencias=licencias,
@@ -73,6 +78,10 @@ def dashboard():
         mrr=round(mrr),
         planes=PLANES,
         dias_gracia=current_app.config["DIAS_GRACIA"],
+        intentos=intentos,
+        total_intentos=total_intentos,
+        total_intentos_completados=total_intentos_completados,
+        tasa_conversion=tasa_conversion,
     )
 
 

@@ -127,6 +127,33 @@ class License(db.Model):
         return False
 
 
+class IntentoCompra(db.Model):
+    """Cada vez que alguien le da al botón de pago y llena el formulario en
+    /comprar, queda una fila aquí (ANTES de saber si de verdad paga en
+    PayPal). Cuando el pago se confirma (webhook o /gracias), se marca
+    completado=True. Así en el panel admin se puede ver el embudo real:
+    cuántos entran al botón de pago vs. cuántos terminan pagando."""
+    __tablename__ = "intentos_compra"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    nombre = db.Column(db.String(120))
+    tiktok_username = db.Column(db.String(64), index=True)
+    email = db.Column(db.String(255))
+    plan = db.Column(db.String(32), default="mensual")
+
+    # precio que se le mostró/cobró en ese momento (para saber si entró
+    # durante la oferta o con precio normal)
+    precio_mostrado = db.Column(db.Float, nullable=True)
+    en_oferta = db.Column(db.Boolean, default=False)
+
+    completado = db.Column(db.Boolean, default=False, index=True)
+    completado_at = db.Column(db.DateTime, nullable=True)
+    subscription_id = db.Column(db.Integer, db.ForeignKey("subscriptions.id"), nullable=True)
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+
+
 class WebhookEvent(db.Model):
     __tablename__ = "webhook_events"
 

@@ -86,11 +86,26 @@ def crear_suscripcion(
     return_url: str,
     cancel_url: str,
     email: str | None = None,
+    precio_override: float | None = None,
+    moneda: str = "USD",
 ) -> dict:
     """Crea una suscripción en PayPal para un plan (plan_id) concreto, con
     el usuario de TikTok metido en `custom_id` (PayPal lo devuelve intacto
     en el `resource.custom_id` de cada webhook, así sabemos para quién
     generar/renovar la licencia).
+
+    precio_override: si viene (ej. durante la oferta por tiempo limitado,
+    ver promo.py), se manda un "plan override" en la misma llamada para
+    cobrar ESE precio en vez del precio normal del Plan de PayPal — sin
+    tener que crear un Plan nuevo ni tocar el dashboard de PayPal. Al
+    terminar la oferta simplemente se deja de mandar el override y se
+    vuelve a cobrar el precio normal del Plan de siempre.
+
+    IMPORTANTE: este override de precio en la creación de la suscripción
+    es una funcionalidad real de la API de PayPal (Subscriptions ->
+    "plan override"), pero pruébala primero en modo sandbox antes de
+    usarla en vivo — no se pudo probar en este entorno por no tener
+    acceso de red a paypal.com.
 
     Devuelve el dict completo de PayPal; el caller normalmente solo
     necesita `id` (el subscription_id) y el link "approve" para redirigir
@@ -108,6 +123,20 @@ def crear_suscripcion(
     }
     if email:
         body["subscriber"] = {"email_address": email}
+    if precio_override is not None:
+        body["plan"] = {
+            "billing_cycles": [
+                {
+                    "sequence": 1,
+                    "pricing_scheme": {
+                        "fixed_price": {
+                            "value": f"{precio_override:.2f}",
+                            "currency_code": moneda,
+                        }
+                    },
+                }
+            ]
+        }
 
     resp = requests.post(
         f"{_base_url(mode)}/v1/billing/subscriptions",

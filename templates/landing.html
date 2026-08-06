@@ -11,7 +11,9 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
       Descargar
     </a>
-    <a href="#precios" class="nav-cta">Empezar por $5</a>
+    <a href="#precios" class="nav-cta">
+      {% if precios.mensual.en_oferta %}Empezar por ${{ '%.2f'|format(precios.mensual.precio_actual) }}{% else %}Empezar por ${{ '%.0f'|format(precios.mensual.precio_actual) }}{% endif %}
+    </a>
   </div>
 </nav>
 
@@ -26,12 +28,26 @@
         y tú dejas de solo transmitir y empiezas a facturar.
       </p>
       <div class="cta-row">
-        <a href="#precios" class="btn-primary">Empezar por $5/mes</a>
+        {% if precios.mensual.en_oferta %}
+          <a href="#precios" class="btn-primary">Empezar por ${{ '%.2f'|format(precios.mensual.precio_actual) }}/mes</a>
+        {% else %}
+          <a href="#precios" class="btn-primary">Empezar por ${{ '%.0f'|format(precios.mensual.precio_actual) }}/mes</a>
+        {% endif %}
         <a href="{{ url_for('public.descargar') }}" class="btn-outline">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
           Ya tengo licencia
         </a>
-        <span class="precio-inline cta-row-full">Desde <b>$5</b> / mes · cancelas cuando quieras · incluye actualizaciones</span>
+        {% if precios.mensual.en_oferta %}
+          <span class="precio-inline cta-row-full">
+            <span class="oferta-badge">OFERTA POR TIEMPO LIMITADO</span>
+            <span style="text-decoration:line-through; color:var(--text-dim);">${{ '%.0f'|format(precios.mensual.precio_normal) }}</span>
+            <b>${{ '%.2f'|format(precios.mensual.precio_actual) }}</b> / mes ·
+            vuelve a ${{ '%.0f'|format(precios.mensual.precio_normal) }} el {{ precios.mensual.fin_oferta.strftime('%d/%m') }} ·
+            cancelas cuando quieras
+          </span>
+        {% else %}
+          <span class="precio-inline cta-row-full">Desde <b>${{ '%.0f'|format(precios.mensual.precio_actual) }}</b> / mes · cancelas cuando quieras · incluye actualizaciones</span>
+        {% endif %}
       </div>
     </div>
 
@@ -55,7 +71,13 @@
       <div class="paso">
         <div class="num">01</div>
         <h3>Eliges tu plan</h3>
-        <p>Un solo plan, $5 al mes. Recibes tu clave de licencia por correo al instante, ligada a tu usuario de TikTok.</p>
+        <p>Un solo plan
+          {% if precios.mensual.en_oferta %}
+            , ahora ${{ '%.2f'|format(precios.mensual.precio_actual) }} al mes por tiempo limitado (normalmente ${{ '%.0f'|format(precios.mensual.precio_normal) }}).
+          {% else %}
+            , ${{ '%.0f'|format(precios.mensual.precio_actual) }} al mes.
+          {% endif %}
+          Recibes tu clave de licencia por correo al instante, ligada a tu usuario de TikTok.</p>
       </div>
       <div class="paso">
         <div class="num">02</div>
@@ -165,16 +187,33 @@
     <div class="section-head" style="text-align:center; margin: 0 auto 42px;">
       <span class="kicker">Precios</span>
       <h2>Un solo plan. Todo incluido.</h2>
-      <p style="color:var(--text-dim); max-width:52ch; margin:14px auto 0;">
-        $5 al mes, sin letras chiquitas: el juego completo, todas las mecánicas
-        y actualizaciones incluidas. Cancelas cuando quieras.
-      </p>
+      {% if precios.mensual.en_oferta %}
+        <p style="color:var(--text-dim); max-width:52ch; margin:14px auto 0;">
+          Sin letras chiquitas: el juego completo, todas las mecánicas y
+          actualizaciones incluidas. Cancelas cuando quieras.
+        </p>
+      {% else %}
+        <p style="color:var(--text-dim); max-width:52ch; margin:14px auto 0;">
+          ${{ '%.0f'|format(precios.mensual.precio_actual) }} al mes, sin letras chiquitas: el juego completo, todas las mecánicas
+          y actualizaciones incluidas. Cancelas cuando quieras.
+        </p>
+      {% endif %}
     </div>
 
     <div class="planes-grid" style="max-width:360px; margin:0 auto;">
       <div class="plan-card destacado">
+        {% if precios.mensual.en_oferta %}
+          <div class="oferta-badge" style="margin-bottom:8px;">OFERTA · TERMINA {{ precios.mensual.fin_oferta.strftime('%d/%m') }}</div>
+        {% endif %}
         <div class="plan-nombre">Mensual</div>
-        <div class="plan-monto">$5 <span>/ mes</span></div>
+        {% if precios.mensual.en_oferta %}
+          <div class="plan-monto">
+            <span style="text-decoration:line-through; font-size:16px; color:var(--text-dim); margin-right:6px;">${{ '%.0f'|format(precios.mensual.precio_normal) }}</span>
+            ${{ '%.2f'|format(precios.mensual.precio_actual) }} <span>/ mes</span>
+          </div>
+        {% else %}
+          <div class="plan-monto">${{ '%.0f'|format(precios.mensual.precio_actual) }} <span>/ mes</span></div>
+        {% endif %}
         <div class="plan-equiv">Cancela cuando quieras, sin permanencia</div>
         <ul>
           <li>Juego completo Quid Game TikTok</li>

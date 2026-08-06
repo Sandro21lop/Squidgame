@@ -59,7 +59,6 @@ def paypal_webhook():
         if event_name == "PAYMENT.SALE.COMPLETED":
             sub_id = resource.get("billing_agreement_id")
             sub = Subscription.query.filter_by(paypal_subscription_id=str(sub_id)).first()
-            datos = None
             if sub is None and sub_id:
                 # Suscripción activa que aún no vimos vía BILLING.SUBSCRIPTION.*
                 # (puede llegar en otro orden): la pedimos a la API para
@@ -73,21 +72,7 @@ def paypal_webhook():
                 except paypal_client.PayPalError as e:
                     print(f"[webhooks] No se pudo recuperar suscripción {sub_id}: {e}")
                     sub = None
-            if datos is not None:
-                # Suscripción recién vista: usamos el custom_id REAL que
-                # viene en la respuesta completa de PayPal (GET /billing/subscriptions),
-                # no el de una licencia que todavía no existe. Antes esta rama
-                # dejaba el usuario de TikTok en blanco y la licencia nunca se
-                # emitía si PAYMENT.SALE.COMPLETED llegaba antes que
-                # BILLING.SUBSCRIPTION.ACTIVATED.
-                resource_para_licencia = datos
-            else:
-                # Suscripción que ya conocíamos: si ya tiene licencia, tomamos
-                # el usuario de TikTok de ahí (no viene en el payload del sale).
-                resource_para_licencia = {
-                    "custom_id": sub.licenses.first().tiktok_username
-                    if (sub and sub.licenses.first()) else ""
-                }
+            resource_para_licencia = {"custom_id": sub.licenses.first().tiktok_username if (sub and sub.licenses.first()) else ""}
         else:
             sub = licensing.upsert_subscription_paypal(resource, event_name, config)
             resource_para_licencia = resource

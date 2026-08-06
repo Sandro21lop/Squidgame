@@ -4,10 +4,11 @@ from flask import Blueprint, render_template, redirect, current_app, request, \
     send_file, abort, flash, url_for
 
 from extensions import db
-from models import License
+from models import License, IntentoCompra
 from license_generator import PLANES, normalizar_tiktok
 import paypal_client
 import licensing
+import promo
 import emailer
 from content_pruebas import PRUEBAS
 
@@ -48,6 +49,7 @@ def landing():
         "landing.html",
         game_name=current_app.config["GAME_NAME"],
         planes=PLANES,
+        precios=promo.info_precios(PLANES, current_app.config),
         checkout_urls=_checkout_urls(current_app),
         pruebas=PRUEBAS,
     )
@@ -72,30 +74,44 @@ def comprar(plan="mensual"):
     if not _pasarela_configurada(current_app):
         return redirect(_checkout_urls(current_app)[plan])
 
+    precio_info = promo.info_precio(plan, PLANES, current_app.config)
+
     error = None
+    nombre = ""
     tiktok_username = ""
     email = ""
     if request.method == "POST":
+        nombre = (request.form.get("nombre", "") or "").strip()
         tiktok_username = normalizar_tiktok(request.form.get("tiktok_username", ""))
         email = (request.form.get("email", "") or "").strip().lower()
 
-        if not tiktok_username:
+        if not nombre:
+            error = "Escribe tu nombre."
+        elif not tiktok_username:
             error = "Escribe tu usuario de TikTok (el mismo con el que transmites)."
         elif not email or "@" not in email or "." not in email.split("@")[-1]:
             error = "Escribe un correo electrónico válido: ahí te llega la clave de licencia."
         else:
+            # Se registra el intento AQUÍ, antes de saber si de verdad va a
+            # pagar — es lo que permite ver en el panel admin quién entra
+            # al botón de pago vs. quién termina pagando.
+            intento = IntentoCompra(
+                nombre=nombre,
+                tiktok_username=tiktok_username,
+                email=email,
+                plan=plan,
+                precio_mostrado=precio_info["precio_actual"],
+                en_oferta=precio_info["en_oferta"],
+            )
+            db.session.add(intento)
+            db.session.commit()
+
             return_url = url_for("public.gracias", u=tiktok_username, _external=True)
             cancel_url = url_for("public.comprar", plan=plan, _external=True)
+            precio_override = precio_info["precio_actual"] if precio_info["en_oferta"] else None
             try:
-                suscripcion = paypal_client.crear_suscripcion(
-                    client_id=current_app.config["PAYPAL_CLIENT_ID"],
-                    client_secret=current_app.config["PAYPAL_CLIENT_SECRET"],
-                    mode=current_app.config["PAYPAL_MODE"],
-                    plan_id=current_app.config[_PLAN_ID_KEYS[plan]],
-                    tiktok_username=tiktok_username,
-                    return_url=return_url,
-                    cancel_url=cancel_url,
-                    email=email,
+                suscripcion = _crear_suscripcion_con_precio(
+                    plan, tiktok_username, return_url, cancel_url, email, precio_override,
                 )
                 checkout_url = paypal_client.approval_url(suscripcion)
                 if not checkout_url:
@@ -110,10 +126,50 @@ def comprar(plan="mensual"):
         game_name=current_app.config["GAME_NAME"],
         plan=plan,
         info=PLANES[plan],
+        precio_info=precio_info,
         error=error,
+        nombre=nombre,
         tiktok_username=tiktok_username,
         email=email,
     )
+
+
+def _crear_suscripcion_con_precio(plan, tiktok_username, return_url, cancel_url, email, precio_override):
+    """Crea la suscripción en PayPal con el precio de oferta si aplica.
+
+    Si PayPal rechaza el "plan override" de precio (por ejemplo, porque el
+    Plan de PayPal todavía no está configurado para aceptarlo, o porque no
+    se probó antes en sandbox), reintenta SIN el override para no romper
+    el checkout — el comprador paga el precio normal en vez de quedarse
+    sin poder pagar. Revisa los logs si ves este mensaje seguido: significa
+    que hay que probar/ajustar el override en sandbox."""
+    try:
+        return paypal_client.crear_suscripcion(
+            client_id=current_app.config["PAYPAL_CLIENT_ID"],
+            client_secret=current_app.config["PAYPAL_CLIENT_SECRET"],
+            mode=current_app.config["PAYPAL_MODE"],
+            plan_id=current_app.config[_PLAN_ID_KEYS[plan]],
+            tiktok_username=tiktok_username,
+            return_url=return_url,
+            cancel_url=cancel_url,
+            email=email,
+            precio_override=precio_override,
+        )
+    except paypal_client.PayPalError as e:
+        if precio_override is None:
+            raise
+        print(f"[comprar] PayPal rechazó el precio de oferta ({e}); reintentando al precio normal.")
+        return paypal_client.crear_suscripcion(
+            client_id=current_app.config["PAYPAL_CLIENT_ID"],
+            client_secret=current_app.config["PAYPAL_CLIENT_SECRET"],
+            mode=current_app.config["PAYPAL_MODE"],
+            plan_id=current_app.config[_PLAN_ID_KEYS[plan]],
+            tiktok_username=tiktok_username,
+            return_url=return_url,
+            cancel_url=cancel_url,
+            email=email,
+            precio_override=None,
+        )
 
 
 @public_bp.route("/gracias")

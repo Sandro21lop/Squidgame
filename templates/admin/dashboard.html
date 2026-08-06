@@ -31,6 +31,70 @@
     </div>
   </div>
 
+  <div class="admin-top" style="margin-top:8px;">
+    <h2 style="font-family:var(--display); font-size:19px; margin:0;">Embudo de compra</h2>
+  </div>
+  <div class="stat-row">
+    <div class="stat-box">
+      <div class="label">ENTRARON AL BOTÓN DE PAGO</div>
+      <div class="value">{{ total_intentos }}</div>
+    </div>
+    <div class="stat-box">
+      <div class="label">TERMINARON PAGANDO</div>
+      <div class="value">{{ total_intentos_completados }}</div>
+    </div>
+    <div class="stat-box">
+      <div class="label">TASA DE CONVERSIÓN</div>
+      <div class="value">{{ tasa_conversion }}%</div>
+    </div>
+  </div>
+
+  <table style="margin-bottom:30px;">
+    <thead>
+      <tr>
+        <th>Nombre</th>
+        <th>Usuario TikTok</th>
+        <th>Correo</th>
+        <th>Plan</th>
+        <th>Precio mostrado</th>
+        <th>Entró</th>
+        <th>Estado</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for intento in intentos %}
+        <tr>
+          <td>{{ intento.nombre or '—' }}</td>
+          <td>{{ '@' + intento.tiktok_username if intento.tiktok_username else '—' }}</td>
+          <td>{{ intento.email or '—' }}</td>
+          <td>{{ planes.get(intento.plan, {}).get('nombre', intento.plan) }}</td>
+          <td>
+            ${{ '%.2f'|format(intento.precio_mostrado) if intento.precio_mostrado is not none else '—' }}
+            {% if intento.en_oferta %}<span style="color:var(--rosa); font-size:11px;">(oferta)</span>{% endif %}
+          </td>
+          <td>{{ intento.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+          <td>
+            {% if intento.completado %}
+              <span style="color:#2fbf71;">✓ Pagó</span>
+            {% else %}
+              <span style="color:var(--text-dim);">Pendiente / abandonó</span>
+            {% endif %}
+          </td>
+        </tr>
+      {% else %}
+        <tr>
+          <td colspan="7" style="color:var(--text-dim); text-align:center; padding:20px 0;">
+            Todavía no hay nadie que haya entrado al botón de pago.
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="admin-top" style="margin-top:8px;">
+    <h2 style="font-family:var(--display); font-size:19px; margin:0;">Licencias</h2>
+  </div>
+
   <form method="GET" class="search-box" style="margin-bottom:20px;">
     <input type="text" name="q" value="{{ q }}" placeholder="Buscar por usuario de TikTok o clave...">
   </form>
