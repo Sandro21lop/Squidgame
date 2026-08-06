@@ -106,6 +106,27 @@ def upsert_subscription_paypal(resource, event_name, config):
     return sub
 
 
+def marcar_intento_completado(tiktok_username, sub):
+    """Cuando un pago se confirma (webhook o /gracias), busca el intento de
+    compra pendiente más reciente de este usuario de TikTok y lo marca como
+    completado — así en el panel admin se ve el embudo: quién entró al
+    botón de pago vs. quién terminó pagando."""
+    from models import IntentoCompra
+
+    if not tiktok_username:
+        return
+    intento = (
+        IntentoCompra.query
+        .filter_by(tiktok_username=tiktok_username, completado=False)
+        .order_by(IntentoCompra.created_at.desc())
+        .first()
+    )
+    if intento:
+        intento.completado = True
+        intento.completado_at = datetime.utcnow()
+        intento.subscription_id = sub.id
+
+
 def emitir_o_renovar_licencia_paypal(sub, resource, event_name, config):
     if sub is None:
         return None, None
@@ -135,6 +156,7 @@ def emitir_o_renovar_licencia_paypal(sub, resource, event_name, config):
             lic_anterior.plan = sub.plan
             lic_anterior.email = (sub.customer.email if sub.customer else lic_anterior.email)
             plan_nombre = PLANES.get(sub.plan, {}).get("nombre", sub.plan)
+            marcar_intento_completado(tiktok_username, sub)
             return "reactivada", dict(
                 destinatario=(sub.customer.email if sub.customer else lic_anterior.email),
                 tiktok_username=tiktok_username, license_key=lic_anterior.license_key,
@@ -154,6 +176,7 @@ def emitir_o_renovar_licencia_paypal(sub, resource, event_name, config):
         )
         db.session.add(lic)
         plan_nombre = PLANES.get(sub.plan, {}).get("nombre", sub.plan)
+        marcar_intento_completado(tiktok_username, sub)
         return "nueva", dict(
             destinatario=(sub.customer.email if sub.customer else None),
             tiktok_username=tiktok_username, license_key=clave,
@@ -162,6 +185,7 @@ def emitir_o_renovar_licencia_paypal(sub, resource, event_name, config):
 
     if event_name == "PAYMENT.SALE.COMPLETED":
         plan_nombre = PLANES.get(sub.plan, {}).get("nombre", sub.plan)
+        marcar_intento_completado(licencia_existente.tiktok_username, sub)
         return "renovada", dict(
             destinatario=(sub.customer.email if sub.customer else None),
             tiktok_username=licencia_existente.tiktok_username,

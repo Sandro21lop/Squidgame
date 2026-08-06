@@ -45,6 +45,15 @@ class Config:
     PAYPAL_CHECKOUT_URL_SEMESTRAL = os.environ.get("PAYPAL_CHECKOUT_URL_SEMESTRAL", "#")
     PAYPAL_CHECKOUT_URL_ANUAL = os.environ.get("PAYPAL_CHECKOUT_URL_ANUAL", "#")
 
+    # ─────────────────────────────────────────────
+    # Oferta por tiempo limitado (estilo Steam). Ver promo.py para la
+    # lógica completa. PROMO_FIN va en formato YYYY-MM-DD; si lo dejas
+    # vacío, la oferta termina sola el último día del mes actual.
+    # ─────────────────────────────────────────────
+    PROMO_ACTIVA = os.environ.get("PROMO_ACTIVA", "true").lower() not in ("false", "0", "")
+    PROMO_PRECIO = float(os.environ.get("PROMO_PRECIO", "2.50"))
+    PROMO_FIN = os.environ.get("PROMO_FIN", "")
+
     # Admin
     ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@example.com")
     ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "changeme")
